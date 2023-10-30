@@ -8,7 +8,10 @@ TEST_SOURCES := $(shell find test/ -name '*.c')
 TARGET_OBJECTS := $(TARGET_SOURCES:%.c=%.o)
 TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -lpthread
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -fsanitize=address
+LDFLAGS := -lpthread -fsanitize=address
+INCLUDES := -Iinclude
+
 ifdef DEBUG
 	CFLAGS += -ggdb3 -O0
 else
@@ -19,31 +22,21 @@ else
 	endif
 endif
 
-# INCLUDES := 
-# LDFLAGS := 
-
-
 # Link target
 $(TARGET): $(TARGET_OBJECTS)
-	$(CC) $(CFLAGS) $(INCLUDES) $(TARGET_OBJECTS) -o $@ $(LDFLAGS)
+	$(CC) $(TARGET_OBJECTS) $(CFLAGS) $(LDFLAGS) -o $@
 
 # Compile target
-$(TARGET_OBJECTS): $(TARGET_SOURCES)
-	$(CC) $(CFLAGS) $(INCLUDES) -MMD -o $@ -c $<
-
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -MMD -c $< -o $@
 
 testrunner: $(TEST_OBJECTS) $(TARGET)
-	$(CC) $(CFLAGS) $(TEST_OBJECTS) -o $@
+	$(CC) $(TEST_OBJECTS) $(CFLAGS) $(LDFLAGS) -o $@
 
-$(TEST_OBJECTS): $(TEST_SOURCES)
-	$(CC) $(CFLAGS) $(INCLUDES) -MMD -o $@ -c $<
-
-
-
-
+# Clean up
 .PHONY: clean
 clean:
-	rm -f **/*.o **/*.d
+	rm -f src/*.o src/*.d test/*.o test/*.d
 	rm -f $(TARGET) testrunner
 
 -include $(TARGET_OBJECTS:%.o=%.d) $(TEST_OBJECTS:%.o=%.d)
