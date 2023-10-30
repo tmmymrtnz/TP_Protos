@@ -8,7 +8,7 @@ TEST_SOURCES := $(shell find test/ -name '*.c')
 TARGET_OBJECTS := $(TARGET_SOURCES:%.c=%.o)
 TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -lpthread
 ifdef DEBUG
 	CFLAGS += -ggdb3 -O0
 else
