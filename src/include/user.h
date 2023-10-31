@@ -19,7 +19,7 @@ typedef struct {
 
 TUsers * usersStruct;
 
-int addUser(char *username, char* *password);
+int addUser(char *username, char* password);
 
 //Elimina a un usuario.
 int deleteUser(char *username);
