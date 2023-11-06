@@ -11,10 +11,9 @@ TARGET_OBJECTS_MINUS_MAIN := $(filter-out src/main.o, $(TARGET_OBJECTS))
 TEST_SOURCES := $(shell find test/ -name '*.c')
 TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11
-
-LDFLAGS := -lpthread $(shell pkg-config --libs $(PACKAGES))
 INCLUDES := -Iinclude -Isrc -Isrc/include $(shell pkg-config --cflags $(PACKAGES))
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -MMD $(INCLUDES)
+LDFLAGS := -lpthread $(shell pkg-config --libs $(PACKAGES))
 
 ifeq ($(DEBUG), y)
 	CFLAGS += -ggdb3 -O0
@@ -29,10 +28,6 @@ endif
 # Link target
 $(TARGET): $(TARGET_OBJECTS)
 	$(CC) $(CFLAGS) $(TARGET_OBJECTS) -o $@ $(LDFLAGS)
-
-# Compile target
-%.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -MMD -c $< -o $@
 
 
 %_test: test/%_test.o $(TARGET_OBJECTS_MINUS_MAIN)
