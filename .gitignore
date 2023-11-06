@@ -1,3 +1,11 @@
+# Compilation artifacts
+main
+buffer_test
+hello_test
+netutils_test
+parser_test
+parser_utils_test
+
 # IDE configuration files
 .vscode/
 
