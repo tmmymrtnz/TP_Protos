@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include "../include/user.h"
 
 void initializeUsers() {
@@ -9,7 +12,7 @@ void initializeUsers() {
 
     if(usersStruct->users == NULL) {
         perror("Error: could not allocate users array");
-        exit();
+        exit(1);
     }
 
     addUser("default", "default");
@@ -107,10 +110,10 @@ int changePassword(char *username, char *oldPassword, char *newPassword) {
         return 1;
 
     int i;
-    if ((i = findUser) == -1)
+    if ((i = findUser(username)) == -1)
         return 1;
     if(strcmp(usersStruct->users[i].password, oldPassword) == 0) {
-        strcpy(usersStruct->users[i].password, newPassword, strlen(newPassword) + 1);
+        strncpy(usersStruct->users[i].password, newPassword, strlen(newPassword) + 1);
         return 0;
     }
 
@@ -122,7 +125,7 @@ int resetUserPassword(char *username) {
     if((i = findUser(username)) == -1)
         return 1;
     else {
-        strcpy(usersStruct->users[i].password, "password", strlen("password") + 1);
+        strncpy(usersStruct->users[i].password, "password", strlen("password") + 1);
         return 0;
     }
 
