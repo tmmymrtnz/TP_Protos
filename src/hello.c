@@ -59,9 +59,10 @@ hello_is_done(const enum hello_state state, bool *errored) {
     bool ret;
     switch (state) {
         case hello_error_unsupported_version:
-            if (0 != errored) {
+            if (NULL != errored) {
                 *errored = true;
             }
+            //fall through
             /* no break */
         case hello_done:
             ret = true;
@@ -89,7 +90,7 @@ hello_error(const struct hello_parser *p) {
 
 extern void 
 hello_parser_close(struct hello_parser *p) {
-    /* no hay nada que liberar */
+   p=p;
 }
 
 extern enum hello_state

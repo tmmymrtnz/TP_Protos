@@ -24,7 +24,7 @@ endif
 
 # Link target
 $(TARGET): $(TARGET_OBJECTS)
-	$(CC) $(TARGET_OBJECTS) $(CFLAGS) $(LDFLAGS) -o $@
+	$(CC) $(TARGET_OBJECTS) $(CFLAGS) $(LDFLAGS) -o $@ -lcheck
 
 # Compile target
 %.o: %.c
