@@ -98,6 +98,8 @@ int main(void) {
     if (listen(server_fd, MAX_CLIENTS) < 0) {
         perror("Listen failed");
         exit(EXIT_FAILURE);
+    } else {
+        printf("Listening on port %d\n", PORT);
     }
 
     while (1) {
