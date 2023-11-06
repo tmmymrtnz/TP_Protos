@@ -35,21 +35,6 @@ $(TARGET): $(TARGET_OBJECTS)
 	$(CC) $(CFLAGS) $(INCLUDES) -MMD -c $< -o $@
 
 
-# buffer_test: test/buffer_test.o $(TARGET_OBJECTS_MINUS_MAIN)
-# 	$(CC) $(CFLAGS) test/buffer_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
-
-# hello_test: test/hello_test.o $(TARGET_OBJECTS_MINUS_MAIN)
-# 	$(CC) $(CFLAGS) test/hello_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
-
-# netutils_test: test/netutils_test.o $(TARGET_OBJECTS_MINUS_MAIN)
-# 	$(CC) $(CFLAGS) test/netutils_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
-
-# parser_test: test/parser_test.o $(TARGET_OBJECTS_MINUS_MAIN)
-# 	$(CC) $(CFLAGS) test/parser_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
-
-# parser_utils_test: test/parser_utils_test.o $(TARGET_OBJECTS_MINUS_MAIN)
-# 	$(CC) $(CFLAGS) test/parser_utils_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
-
 %_test: test/%_test.o $(TARGET_OBJECTS_MINUS_MAIN)
 	$(CC) $(CFLAGS) test/$*_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
 
