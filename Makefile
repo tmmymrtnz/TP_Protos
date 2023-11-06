@@ -1,7 +1,7 @@
 TARGET := main
 
+ASAN := y  # Enable debug and Asan by default
 CC := gcc
-
 PACKAGES := check
 
 TARGET_SOURCES := $(shell find src/ -name '*.c')
@@ -11,15 +11,15 @@ TARGET_OBJECTS_MINUS_MAIN := $(filter-out src/main.o, $(TARGET_OBJECTS))
 TEST_SOURCES := $(shell find test/ -name '*.c')
 TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -fsanitize=address
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11
 
-LDFLAGS := -lpthread -fsanitize=address $(shell pkg-config --libs $(PACKAGES))
+LDFLAGS := -lpthread $(shell pkg-config --libs $(PACKAGES))
 INCLUDES := -Iinclude -Isrc -Isrc/include $(shell pkg-config --cflags $(PACKAGES))
 
-ifdef DEBUG
+ifeq ($(DEBUG), y)
 	CFLAGS += -ggdb3 -O0
 else
-	ifdef ASAN
+	ifeq ($(ASAN), y)
 		CFLAGS += -ggdb3 -O0 -fsanitize=address
 	else
 		CFLAGS += -O3
