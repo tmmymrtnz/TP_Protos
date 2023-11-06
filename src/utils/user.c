@@ -1,15 +1,15 @@
 #include "../include/user.h"
 
-void initializeUsers() {
+void initializeUsers(void) {
 
     usersStruct = malloc(sizeof(TUsers));
     usersStruct->users = malloc(sizeof(TUser) * MAX_CLIENTS);
     usersStruct->count = 1;
     usersStruct->max_users = MAX_CLIENTS;
 
-    if(usersStruct->users == NULL) {
+    if (usersStruct->users == NULL) {
         perror("Error: could not allocate users array");
-        exit();
+        exit(EXIT_FAILURE); // EXIT_FAILURE is usually defined in stdlib.h
     }
 
     addUser("default", "default");
@@ -103,14 +103,16 @@ int validateUserCredentials(char *username, char *password) {
 }
 
 int changePassword(char *username, char *oldPassword, char *newPassword) {
-    if(username == NULL || oldPassword == NULL || newPassword == NULL)
+    if (username == NULL || oldPassword == NULL || newPassword == NULL)
         return 1;
 
     int i;
-    if ((i = findUser) == -1)
+    if ((i = findUser(username)) == -1) { // Correctly call findUser with the username
         return 1;
-    if(strcmp(usersStruct->users[i].password, oldPassword) == 0) {
-        strcpy(usersStruct->users[i].password, newPassword, strlen(newPassword) + 1);
+    }
+    if (strcmp(usersStruct->users[i].password, oldPassword) == 0) {
+        strncpy(usersStruct->users[i].password, newPassword, strlen(newPassword)); // Correctly use strncpy
+        usersStruct->users[i].password[strlen(newPassword)] = '\0'; // Ensure null-termination
         return 0;
     }
 
@@ -119,17 +121,16 @@ int changePassword(char *username, char *oldPassword, char *newPassword) {
 
 int resetUserPassword(char *username) {
     int i;
-    if((i = findUser(username)) == -1)
-        return 1;
-    else {
-        strcpy(usersStruct->users[i].password, "password", strlen("password") + 1);
-        return 0;
+    if ((i = findUser(username)) == -1) {
+        return 1; // Indicate failure
+    } else {
+        strncpy(usersStruct->users[i].password, "password", strlen("password"));
+        usersStruct->users[i].password[strlen("password")] = '\0'; // Ensure null-termination
+        return 0; // Indicate success
     }
-
-    return 1;
 }
 
-void freeUsers() {
+void freeUsers(void) {
     free(usersStruct->users);
     free(usersStruct);
 }

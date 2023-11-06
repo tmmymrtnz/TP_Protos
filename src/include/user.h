@@ -1,4 +1,7 @@
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #define MAX_CLIENTS 500
 
 #define USERNAME_MAX_LENGTH 256
@@ -46,4 +49,4 @@ int changePassword(char *username, char *oldPassword, char *newPassword);
 int resetUserPassword(char *username);
 
 //Libera toda la memoria utilizada por las estructuras de usuarios.
-void freeUsers();
+void freeUsers(void);

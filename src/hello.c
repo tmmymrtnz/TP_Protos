@@ -90,7 +90,8 @@ hello_error(const struct hello_parser *p) {
 
 extern void 
 hello_parser_close(struct hello_parser *p) {
-   p=p;
+   //add a line that does nothing
+    (void)p;
 }
 
 extern enum hello_state
