@@ -25,6 +25,8 @@ else
 	endif
 endif
 
+.PHONY: clean test
+
 # Link target
 $(TARGET): $(TARGET_OBJECTS)
 	$(CC) $(CFLAGS) $(TARGET_OBJECTS) -o $@ $(LDFLAGS)
@@ -35,8 +37,7 @@ $(TARGET): $(TARGET_OBJECTS)
 
 test: $(TEST_OBJECTS) $(TARGET_OBJECTS_MINUS_MAIN)
 
-# Clean up
-.PHONY: clean
+
 clean:
 	rm -f **/*.o **/*.d
 	rm -f $(TARGET) *_test
