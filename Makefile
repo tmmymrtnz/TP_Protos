@@ -11,8 +11,10 @@ TARGET_OBJECTS := $(TARGET_SOURCES:%.c=%.o)
 TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -fsanitize=address
+
 LDFLAGS := -lpthread -fsanitize=address $(shell pkg-config --libs $(PACKAGES))
-INCLUDES := -Iinclude $(shell pkg-config --cflags $(PACKAGES))
+INCLUDES := -Iinclude -Isrc/include $(shell pkg-config --cflags $(PACKAGES))
+
 
 ifdef DEBUG
 	CFLAGS += -ggdb3 -O0
