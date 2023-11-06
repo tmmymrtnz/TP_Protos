@@ -10,7 +10,7 @@ TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -fsanitize=address
 LDFLAGS := -lpthread -fsanitize=address
-INCLUDES := -Iinclude
+INCLUDES := -Iinclude -Isrc/include
 
 ifdef DEBUG
 	CFLAGS += -ggdb3 -O0
