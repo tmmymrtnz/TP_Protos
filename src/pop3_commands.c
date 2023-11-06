@@ -3,10 +3,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #define BASE_DIR "mailserver/"
+
+
+int is_regular_file(const char *path) {
+    struct stat path_stat;
+    stat(path, &path_stat);
+    return S_ISREG(path_stat.st_mode);
+}
+
 
 char* handle_user_command(int client_socket, char* arg) {
     static char stored_username[128];  // static so it retains its value across function calls
@@ -39,7 +49,7 @@ void handle_list_command(int client_socket, char* username) {
     struct dirent* entry;
     int count = 0;
     while ((entry = readdir(dir))) {
-        if (entry->d_type == DT_REG) { // If it's a regular file
+        if (is_regular_file(entry->d_name)) {
             count++;
         }
     }
