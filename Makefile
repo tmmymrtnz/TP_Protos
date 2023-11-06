@@ -1,6 +1,7 @@
 TARGET := main
+DEBUG := y
+ASAN := y
 
-ASAN := y  # Enable debug and Asan by default
 CC := gcc
 PACKAGES := check
 
@@ -17,12 +18,12 @@ LDFLAGS := -lpthread $(shell pkg-config --libs $(PACKAGES))
 
 ifeq ($(DEBUG), y)
 	CFLAGS += -ggdb3 -O0
-else
-	ifeq ($(ASAN), y)
-		CFLAGS += -ggdb3 -O0 -fsanitize=address
-	else
-		CFLAGS += -O3
-	endif
+endif
+ifeq ($(ASAN), y)
+	CFLAGS += -fsanitize=address
+endif
+ifneq ($(and $(DEBUG),$(ASAN)),y)
+	CFLAGS += -O3
 endif
 
 .PHONY: clean test
