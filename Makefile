@@ -39,6 +39,6 @@ test: $(TEST_OBJECTS) $(TARGET_OBJECTS_MINUS_MAIN)
 .PHONY: clean
 clean:
 	rm -f **/*.o **/*.d
-	rm -f $(TARGET) testrunner
+	rm -f $(TARGET) *_test
 
 -include $(TARGET_OBJECTS:%.o=%.d) $(TEST_OBJECTS:%.o=%.d)
