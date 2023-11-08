@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include "../include/user.h"
 
 void initializeUsers(void) {
@@ -9,7 +12,7 @@ void initializeUsers(void) {
 
     if (usersStruct->users == NULL) {
         perror("Error: could not allocate users array");
-        exit(EXIT_FAILURE); // EXIT_FAILURE is usually defined in stdlib.h
+        exit(1);
     }
 
     addUser("default", "default");
@@ -107,12 +110,10 @@ int changePassword(char *username, char *oldPassword, char *newPassword) {
         return 1;
 
     int i;
-    if ((i = findUser(username)) == -1) { // Correctly call findUser with the username
+    if ((i = findUser(username)) == -1)
         return 1;
-    }
-    if (strcmp(usersStruct->users[i].password, oldPassword) == 0) {
-        strncpy(usersStruct->users[i].password, newPassword, strlen(newPassword)); // Correctly use strncpy
-        usersStruct->users[i].password[strlen(newPassword)] = '\0'; // Ensure null-termination
+    if(strcmp(usersStruct->users[i].password, oldPassword) == 0) {
+        strncpy(usersStruct->users[i].password, newPassword, strlen(newPassword) + 1);
         return 0;
     }
 
@@ -121,13 +122,14 @@ int changePassword(char *username, char *oldPassword, char *newPassword) {
 
 int resetUserPassword(char *username) {
     int i;
-    if ((i = findUser(username)) == -1) {
-        return 1; // Indicate failure
-    } else {
-        strncpy(usersStruct->users[i].password, "password", strlen("password"));
-        usersStruct->users[i].password[strlen("password")] = '\0'; // Ensure null-termination
-        return 0; // Indicate success
+    if((i = findUser(username)) == -1)
+        return 1;
+    else {
+        strncpy(usersStruct->users[i].password, "password", strlen("password") + 1);
+        return 0;
     }
+
+    return 1;
 }
 
 void freeUsers(void) {

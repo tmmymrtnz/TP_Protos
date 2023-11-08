@@ -3,118 +3,134 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <sys/select.h>
 
 #define PORT 110
-#define MAX_CLIENTS 500
+#define MAX_CLIENTS 1000
+#define BUFFER_SIZE 1024
 
-typedef struct {
-    int historical_connections;
-    int concurrent_connections;
-    int transferred_bytes;
-} Metrics;
-
-Metrics server_metrics = {0, 0, 0};
-
-void* handle_client(void* arg) {
-    int client_socket = *(int*)arg;
-    char buffer[4096] = {0};
-    char expected_username[128] = {0};  // To store the username from the USER command
-
-    char *welcome_msg = "+OK POP3 server ready\r\n";
-    send(client_socket, welcome_msg, strlen(welcome_msg), 0);
-    
-    while (1) {
-        memset(buffer, 0, sizeof(buffer));  // Clear the buffer
-        int valread = read(client_socket, buffer, sizeof(buffer) - 1);
-        if (valread <= 0) {
-            close(client_socket);
-            break;
-        }
-
-        // Incrementar métricas
-        server_metrics.transferred_bytes += valread;
-
-        char* cmd = strtok(buffer, "\r\n");
-        while (cmd != NULL) {
-            if (strncmp(cmd, "USER", 4) == 0) {
-                char* received_username = handle_user_command(client_socket, cmd + 5);
-                strncpy(expected_username, received_username, sizeof(expected_username) - 1);
-            } else if (strncmp(cmd, "PASS", 4) == 0) {
-                if (handle_pass_command(client_socket, expected_username, cmd + 5)) {
-                    // Authentication successful, you can set a flag or do further processing
-                    printf("User %s authenticated\n", expected_username);
-                } else {
-                    // Authentication failed. Do not process the next commands in this iteration.
-                    break;
-                }
-            } else if (strncmp(cmd, "LIST", 4) == 0) {
-                handle_list_command(client_socket, expected_username);
-            } else if (strncmp(cmd, "RETR", 4) == 0) {
-                int mail_number = atoi(cmd + 5);
-                handle_retr_command(client_socket, expected_username, mail_number);
-            } else if (strncmp(cmd, "DELE", 4) == 0) {
-                int mail_number = atoi(cmd + 5);
-                handle_dele_command(client_socket, expected_username, mail_number);
-            } else if (strncmp(cmd, "QUIT", 4) == 0) {
-                send(client_socket, "+OK Bye\r\n", 9, 0);
-                close(client_socket);
-                break;
-            } else {
-                send(client_socket, "-ERR Command not implemented\r\n", 30, 0);
-            }
-
-            cmd = strtok(NULL, "\r\n");
-        }
+void reset_client_state(client_state *client) {
+    if (client) {
+        memset(client->read_buffer, 0, BUFFER_SIZE);
+        memset(client->write_buffer, 0, BUFFER_SIZE);
+        client->read_buffer_pos = 0;
+        client->write_buffer_pos = 0;
+        client->authenticated = false;
+        memset(client->username, 0, sizeof(client->username));
+        client->fd = 0;
     }
-
-    // Decrementar métricas
-    server_metrics.concurrent_connections--;
-    free(arg);
-    return NULL;
 }
 
 int main(void) {
-    int server_fd;
+    int server_fd, new_socket, max_sd, activity, i, valread;
     struct sockaddr_in address;
-    int addrlen = sizeof(address);
+    socklen_t addrlen = sizeof(address);
+    client_state clients[MAX_CLIENTS] = {0};
 
+    // Initialize server socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Failed to create socket");
+        perror("socket failed");
         exit(EXIT_FAILURE);
     }
 
+    // Set server socket to allow multiple connections
+    int opt = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+
+    // Bind the server socket to the server address
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("Bind failed");
+        perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
+    // Listen on the server socket
     if (listen(server_fd, MAX_CLIENTS) < 0) {
-        perror("Listen failed");
+        perror("listen");
         exit(EXIT_FAILURE);
-    } else {
-        printf("Listening on port %d\n", PORT);
     }
 
-    while (1) {
-        int* new_socket_ptr = malloc(sizeof(int));
-        if ((*new_socket_ptr = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-            perror("Accept failed");
+    // Accept incoming connection
+    puts("Waiting for connections ...");
+
+    fd_set readfds, writefds;
+    while (true) {
+        FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
+        max_sd = server_fd;
+
+        FD_SET(server_fd, &readfds);
+        for (i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[i].fd > 0) {
+                FD_SET(clients[i].fd, &readfds);
+                if (clients[i].fd > max_sd) {
+                    max_sd = clients[i].fd;
+                }
+            }
+        }
+
+        activity = select(max_sd + 1, &readfds, &writefds, NULL, NULL);
+
+        if ((activity < 0) && (errno != EINTR)) {
+            perror("select error");
             exit(EXIT_FAILURE);
         }
 
-        server_metrics.historical_connections++;
-        server_metrics.concurrent_connections++;
+        if (FD_ISSET(server_fd, &readfds)) {
+            if ((new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen)) < 0) {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
 
-        pthread_t client_thread;
-        pthread_create(&client_thread, NULL, handle_client, new_socket_ptr);
-        pthread_detach(client_thread); 
+            printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+            for (i = 0; i < MAX_CLIENTS; i++) {
+                if (clients[i].fd == 0) {
+                    clients[i].fd = new_socket;
+                    printf("Adding to list of sockets as %d\n", i);
+
+                    // Send welcome message
+                    char *message = "Welcome to the POP3 server. Please log in.\r\n";
+                    send(new_socket, message, strlen(message), 0);
+                    break;
+                }
+            }
+        }
+
+        for (i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[i].fd > 0 && FD_ISSET(clients[i].fd, &readfds)) {
+                valread = read(clients[i].fd, clients[i].read_buffer + clients[i].read_buffer_pos, sizeof(clients[i].read_buffer) - clients[i].read_buffer_pos);
+                if (valread > 0) {
+                    clients[i].read_buffer_pos += valread;
+                    // Check if a command was received and handle it
+                    if (process_pop3_command(&clients[i]) == -1) {
+                        // If process_pop3_command returns -1, it means the client disconnected
+                        close(clients[i].fd);
+                        reset_client_state(&clients[i]);
+                    }
+                } else if (valread == 0) {
+                    // Client disconnected
+                    close(clients[i].fd);
+                    reset_client_state(&clients[i]);
+                } else {
+                    if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                        close(clients[i].fd);
+                        reset_client_state(&clients[i]);
+                    }
+                }
+            }
+        }
     }
 
     close(server_fd);
