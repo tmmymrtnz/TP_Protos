@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/select.h>
+#include "include/user.h"
 
 #define PORT 110
 #define MAX_CLIENTS 1000
@@ -60,6 +61,8 @@ int main(void) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
+
+    initializeUsers();
 
     // Accept incoming connection
     puts("Waiting for connections ...");

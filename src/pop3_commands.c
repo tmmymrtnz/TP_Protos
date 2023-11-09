@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdlib.h>
+#include "include/user.h"
 
 #define BASE_DIR "mailserver/"
 
@@ -24,12 +25,16 @@ int handle_user_command(client_state *client, char *arg) {
     // Ensure the client has provided an argument
     if (!arg || strlen(arg) == 0) {
         send(client->fd, "-ERR Username required\r\n", 23, 0);
-        return -1; // Return an error
+        return - 1; // Return an error
     }
 
     strncpy(client->username, arg, sizeof(client->username) - 1);
-    send(client->fd, "+OK User accepted\r\n", 19, 0);
-    return 0; // Success
+    if(validateUsername(client->username) == 0) {
+        send(client->fd, "+OK User accepted\r\n", 19, 0);
+        return 0; // Success
+    }
+
+    return - 1;
 }
 
 int handle_pass_command(client_state *client, char *password) {
@@ -40,7 +45,7 @@ int handle_pass_command(client_state *client, char *password) {
     }
 
     // Authenticate the user
-    if (authenticate(client->username, password)) {
+    if (validateUserCredentials(client->username, password) == 0) {
         client->authenticated = true;
         send(client->fd, "+OK Logged in\r\n", 15, 0);
         return 0; // Success

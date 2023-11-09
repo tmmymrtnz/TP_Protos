@@ -16,6 +16,9 @@ void initializeUsers(void) {
     }
 
     addUser("default", "default");
+    addUser("user1", "pass1");
+    addUser("user2", "pass2");
+    addUser("user3", "pass3");
     usersStruct->users[0].isAdmin = 1;
 }
 

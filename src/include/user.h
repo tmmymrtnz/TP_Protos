@@ -22,6 +22,9 @@ typedef struct {
 
 TUsers * usersStruct;
 
+//Inicializa la estructura y agrega usuarios default.
+void initializeUsers(void);
+
 int addUser(char *username, char* password);
 
 //Elimina a un usuario.
