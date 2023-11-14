@@ -11,6 +11,8 @@ void pop3_parser_init(struct pop3_parser *parser) {
 bool authenticate_user(const char *username, const char *password) {
     // Replace this with your actual authentication logic
     // For simplicity, always return true in this example
+    username = username;
+    password = password;
     return true;
 }
 
@@ -91,6 +93,10 @@ enum pop3_parser_state pop3_parser_feed(struct pop3_parser *parser, char c) {
                     parser->arg2[parser->arg2_len++] = c;
                 }
                 break;
+            case POP3_PARSE_DONE:
+            // Handle POP3_PARSE_DONE state
+            // (Optionally, you can leave this empty or with a comment if no specific action is needed)
+            break;
         }
     }
 

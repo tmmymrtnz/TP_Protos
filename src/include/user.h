@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#define MAX_CLIENTS 500
+#define MAX_CLIENTS 1000
 
 #define USERNAME_MAX_LENGTH 256
 #define PASSWORD_MAX_LENGTH 256

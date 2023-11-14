@@ -2,6 +2,8 @@
 #define POP3_PARSER_H
 
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 #define MAX_COMMAND_LEN 16
 #define MAX_ARG_LEN 64
