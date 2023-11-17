@@ -42,6 +42,10 @@ void handle_rset_command(client_state *client);
 
 void handle_stat_command(client_state *client);
 
+void handle_capa_command(client_state *client);
+
+void send_response(int client_socket, const char *response);
+
 // Processes a command received from the POP3 client.
 int process_pop3_command(client_state *client);
 

@@ -3,31 +3,43 @@
 #include <stdio.h>
 #include "../include/user.h"
 
-void initializeUsers(void) {
-
+void initialize_users(void) {
     usersStruct = malloc(sizeof(TUsers));
-    usersStruct->users = malloc(sizeof(TUser) * MAX_CLIENTS);
-    usersStruct->count = 1;
-    usersStruct->max_users = MAX_CLIENTS;
-
-    if (usersStruct->users == NULL) {
-        perror("Error: could not allocate users array");
+    if (usersStruct == NULL) {
+        perror("Error: could not allocate users structure");
         exit(1);
     }
 
-    addUser("default", "default");
-    addUser("user1", "pass1");
-    addUser("user2", "pass2");
-    addUser("user3", "pass3");
+    usersStruct->users = malloc(sizeof(TUser) * MAX_CLIENTS);
+    if (usersStruct->users == NULL) {
+        perror("Error: could not allocate users array");
+        free(usersStruct);
+        exit(1);
+    }
+
+    usersStruct->count = 0;
+    usersStruct->max_users = MAX_CLIENTS;
+
+    // Directly add the default user
+    strncpy(usersStruct->users[0].username, "default", sizeof(usersStruct->users[0].username));
+    strncpy(usersStruct->users[0].password, "default", sizeof(usersStruct->users[0].password));
     usersStruct->users[0].isAdmin = 1;
+    usersStruct->users[0].isConnected = 0;
+    usersStruct->count++;
+
+    // Add other users
+    add_user("user1", "pass1");
+    add_user("user2", "pass2");
+    add_user("user3", "pass3");
 }
 
-int addUser(char *username, char *password) {
+
+int add_user(const char *username, const char* password) {
     if(usersStruct->count == MAX_CLIENTS)
         return 1;
     if(username == NULL || password == NULL)
         return 1;
-    if(findUser(username) != - 1)
+    if(find_user(username) != - 1)
         return 1;
 
     //Las credenciales son validas y el usuario aun no existe, lo agrego a la estructura.
@@ -40,9 +52,9 @@ int addUser(char *username, char *password) {
     return 0; // Exito
 }
 
-int deleteUser(char *username) {
+int delete_user(const char *username) {
     int i;
-    if( ( i = findUser(username) ) == - 1)
+    if( ( i = find_user(username) ) == - 1)
         return 1;
     
     if(usersStruct->users[i].isAdmin == 1)
@@ -55,7 +67,7 @@ int deleteUser(char *username) {
     return 0; // Exito
 }
 
-int findUser(char *username) {
+int find_user(const char *username) {
     if(username == NULL)
         return - 1;
 
@@ -66,9 +78,9 @@ int findUser(char *username) {
     return - 1;
 }
 
-int validateAdminUsername(char *username) {
+int validate_admin_username(const char *username) {
     int i;
-    if( ( i = findUser(username) ) == - 1)
+    if( ( i = find_user(username) ) == - 1)
         return 1;
 
     if(usersStruct->users[i].isAdmin == 1 && usersStruct->users[i].isConnected == 0)
@@ -77,9 +89,9 @@ int validateAdminUsername(char *username) {
         return 1;
 }
 
-int validateAdminCredentials(char *username, char *password) {
+int validate_admin_credentials(const char *username, const char *password) {
     int i;
-    if( (i = findUser(username)) == -1 )
+    if( (i = find_user(username)) == -1 )
         return 1;
     if(strcmp(usersStruct->users[i].username, username) == 0 && strcmp(usersStruct->users[i].password, password) == 0) {
         usersStruct->users[i].isConnected = 1;
@@ -89,16 +101,16 @@ int validateAdminCredentials(char *username, char *password) {
     return 1;
 }
 
-int validateUsername(char *username) {
-    if(findUser(username) != - 1)
+int validate_username(const char *username) {
+    if(find_user(username) != - 1)
         return 0;
     else
         return 1;
 }
 
-int validateUserCredentials(char *username, char *password) {
+int validate_user_credentials(const char *username, const char *password) {
     int i;
-    if((i = findUser(username)) == - 1)
+    if((i = find_user(username)) == - 1)
         return 1;
     else if(strcmp(usersStruct->users[i].password, password) == 0 && usersStruct->users[i].isConnected == 0) {
         usersStruct->users[i].isConnected = 1;
@@ -108,12 +120,12 @@ int validateUserCredentials(char *username, char *password) {
     return 1; //Fallo la autenticacion
 }
 
-int changePassword(char *username, char *oldPassword, char *newPassword) {
+int change_password(const char *username, const char *oldPassword, const char *newPassword) {
     if (username == NULL || oldPassword == NULL || newPassword == NULL)
         return 1;
 
     int i;
-    if ((i = findUser(username)) == -1)
+    if ((i = find_user(username)) == -1)
         return 1;
     if(strcmp(usersStruct->users[i].password, oldPassword) == 0) {
         strncpy(usersStruct->users[i].password, newPassword, strlen(newPassword) + 1);
@@ -123,9 +135,9 @@ int changePassword(char *username, char *oldPassword, char *newPassword) {
     return 1;
 }
 
-int resetUserPassword(char *username) {
+int reset_user_password(const char *username) {
     int i;
-    if((i = findUser(username)) == -1)
+    if((i = find_user(username)) == -1)
         return 1;
     else {
         strncpy(usersStruct->users[i].password, "password", strlen("password") + 1);
@@ -135,8 +147,8 @@ int resetUserPassword(char *username) {
     return 1;
 }
 
-int reset_user_connection(char *username) {
-    int userIndex = findUser(username);
+int reset_user_connection(const char *username) {
+    int userIndex = find_user(username);
     if (userIndex == -1) {
         // User not found
         return 1;
@@ -146,6 +158,15 @@ int reset_user_connection(char *username) {
     return 0; // Success
 }
 
+int is_admin(const char *username) {
+    int userIndex = find_user(username);
+    if (userIndex == -1) {
+        // User not found
+        return 0;
+    }
+
+    return usersStruct->users[userIndex].isAdmin;
+}
 
 void freeUsers(void) {
     free(usersStruct->users);

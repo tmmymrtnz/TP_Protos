@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <sys/select.h>
 #include "include/user.h"
+#include "include/logger.h"
 
 #define PORT 110
 #define MAX_CLIENTS 1000
@@ -32,6 +33,10 @@ void reset_client_state(client_state *client) {
 }
 
 int main(void) {
+    ServerStatus * server_status = get_server_status();
+    server_status->total_connections = 0;
+    server_status->current_connections = 0;
+    server_status->bytes_transmitted = 0;
     int server_fd, new_socket, max_sd, activity, i, valread;
     struct sockaddr_storage address;
     socklen_t addrlen = sizeof(address);
@@ -68,7 +73,7 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
-    initializeUsers();
+    initialize_users();
 
     // Accept incoming connections
     puts("Waiting for connections ...");
@@ -102,8 +107,13 @@ int main(void) {
                 exit(EXIT_FAILURE);
             }
 
+            server_status->total_connections++;
+            server_status->current_connections++;
+
             inet_ntop(address.ss_family, &((struct sockaddr_in6 *)&address)->sin6_addr, addr_str, sizeof(addr_str));
-            printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
+            log_new_connection(new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
+
+            //printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
 
             for (i = 0; i < MAX_CLIENTS; i++) {
                 if (clients[i].fd == 0) {
@@ -112,7 +122,7 @@ int main(void) {
 
                     // Send welcome message
                     char *message = "+OK POP3 mail.itba.net v4.20 server ready\r\n";
-                    send(new_socket, message, strlen(message), 0);
+                    send_response(clients[i].fd, message);
                     break;
                 }
             }
@@ -122,12 +132,14 @@ int main(void) {
             if (clients[i].fd > 0 && FD_ISSET(clients[i].fd, &readfds)) {
                 valread = read(clients[i].fd, clients[i].read_buffer + clients[i].read_buffer_pos, sizeof(clients[i].read_buffer) - clients[i].read_buffer_pos);
                 if (valread > 0) {
+                    server_status->bytes_transmitted += valread;
                     clients[i].read_buffer_pos += valread;
                     // Check if a command was received and handle it
                     if (process_pop3_command(&clients[i]) == -1) {
                         // If process_pop3_command returns -1, it means the client disconnected
                         close(clients[i].fd);
                         reset_client_state(&clients[i]);
+                        server_status->current_connections--;
                     }
                 } else if (valread == 0) {
                     // Client disconnected
@@ -137,6 +149,7 @@ int main(void) {
                     if (errno != EWOULDBLOCK && errno != EAGAIN) {
                         close(clients[i].fd);
                         reset_client_state(&clients[i]);
+                        server_status->current_connections--;
                     }
                 }
             }
