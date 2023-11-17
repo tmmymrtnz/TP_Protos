@@ -17,12 +17,16 @@
 
 void reset_client_state(client_state *client) {
     if (client) {
+        if (client->authenticated) {
+            reset_user_connection(client->username);
+        }
         memset(client->read_buffer, 0, BUFFER_SIZE);
         memset(client->write_buffer, 0, BUFFER_SIZE);
         client->read_buffer_pos = 0;
         client->write_buffer_pos = 0;
         client->authenticated = false;
         memset(client->username, 0, sizeof(client->username));
+        memset(client->deleted_messages, 0, sizeof(client->deleted_messages));
         client->fd = 0;
     }
 }
@@ -104,7 +108,7 @@ int main(void) {
                     printf("Adding to list of sockets as %d\n", i);
 
                     // Send welcome message
-                    char *message = "Welcome to the POP3 server. Please log in.\r\n";
+                    char *message = "+OK POP3 mail.itba.net v4.20 server ready\r\n";
                     send(new_socket, message, strlen(message), 0);
                     break;
                 }

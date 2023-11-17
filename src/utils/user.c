@@ -135,6 +135,18 @@ int resetUserPassword(char *username) {
     return 1;
 }
 
+int reset_user_connection(char *username) {
+    int userIndex = findUser(username);
+    if (userIndex == -1) {
+        // User not found
+        return 1;
+    }
+
+    usersStruct->users[userIndex].isConnected = 0;
+    return 0; // Success
+}
+
+
 void freeUsers(void) {
     free(usersStruct->users);
     free(usersStruct);

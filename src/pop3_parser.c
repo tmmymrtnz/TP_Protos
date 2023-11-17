@@ -11,8 +11,10 @@ void pop3_parser_init(struct pop3_parser *parser) {
 bool authenticate_user(const char *username, const char *password) {
     // Replace this with your actual authentication logic
     // For simplicity, always return true in this example
-    username = username;
-    password = password;
+    // username = username;
+    // password = password;
+    (void) username;
+    (void) password;
     return true;
 }
 

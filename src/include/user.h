@@ -51,5 +51,7 @@ int changePassword(char *username, char *oldPassword, char *newPassword);
 //Devuelve 0 si reseteo la contra a "password", 1 en otro caso
 int resetUserPassword(char *username);
 
+int reset_user_connection(char *username);
+
 //Libera toda la memoria utilizada por las estructuras de usuarios.
 void freeUsers(void);
