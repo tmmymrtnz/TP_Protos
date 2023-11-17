@@ -34,7 +34,7 @@ void handle_users_command(client_state *client) {
     strcpy(response, "+OK List of users:\r\n");
 
     for (int i = 0; i < usersStruct->count; i++) {
-        char user_info[100]; // Adjust size as needed
+        char user_info[500]; // Adjust size as needed
         snprintf(user_info, sizeof(user_info), "Username: %s, Admin: %d, Connected: %d\r\n",
                  usersStruct->users[i].username,
                  usersStruct->users[i].isAdmin,

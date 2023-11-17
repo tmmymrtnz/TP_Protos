@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <sys/types.h>
 #include "pop3_commands.h"
 
 // Log levels

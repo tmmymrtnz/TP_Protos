@@ -111,7 +111,7 @@ void handle_list_command(client_state *client) {
             struct stat file_stat;
             if (stat(full_path, &file_stat) == 0) {
                 count++;
-                snprintf(response, sizeof(response), "%d %lld\r\n", count, file_stat.st_size);
+                snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
                 strncat(list_response, response, sizeof(list_response) - strlen(list_response) - 1);
             }
         }
