@@ -33,12 +33,13 @@ void reset_client_state(client_state *client) {
 
 int main(void) {
     int server_fd, new_socket, max_sd, activity, i, valread;
-    struct sockaddr_in address;
+    struct sockaddr_storage address;
     socklen_t addrlen = sizeof(address);
+    char addr_str[INET6_ADDRSTRLEN];
     client_state clients[MAX_CLIENTS] = {0};
 
     // Initialize server socket
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    if ((server_fd = socket(AF_INET6, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
@@ -51,11 +52,12 @@ int main(void) {
     }
 
     // Bind the server socket to the server address
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    struct sockaddr_in6 *address6 = (struct sockaddr_in6 *)&address;
+    address6->sin6_family = AF_INET6;
+    address6->sin6_addr = in6addr_any;
+    address6->sin6_port = htons(PORT);
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    if (bind(server_fd, (struct sockaddr *)address6, sizeof(*address6)) < 0) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
@@ -68,7 +70,7 @@ int main(void) {
 
     initializeUsers();
 
-    // Accept incoming connection
+    // Accept incoming connections
     puts("Waiting for connections ...");
 
     fd_set readfds, writefds;
@@ -100,7 +102,8 @@ int main(void) {
                 exit(EXIT_FAILURE);
             }
 
-            printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+            inet_ntop(address.ss_family, &((struct sockaddr_in6 *)&address)->sin6_addr, addr_str, sizeof(addr_str));
+            printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
 
             for (i = 0; i < MAX_CLIENTS; i++) {
                 if (clients[i].fd == 0) {
