@@ -9,11 +9,14 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "include/user.h"
 #include "include/admin_commands.h"
 #include "include/logger.h"
 
 #define BASE_DIR "src/maildir/"
+
+#define MAX_COMMANDS 10
 
 // Helper function to send a response to the client
 void send_response(int client_socket, const char *response) {
@@ -290,94 +293,107 @@ static void reset_read_buffer(client_state *client) {
 // This function processes a command from the POP3 client and handles it appropriately.
 // It returns 0 if the command was processed successfully, or -1 if the client should be disconnected.
 int process_pop3_command(client_state *client) {
-    // Ensure there's a complete command to process
-    char *end_of_command = strstr(client->read_buffer, "\r\n");
-    if (!end_of_command) {
-        // Command is incomplete, return and wait for more data
-        return 0;
+    // Split commands by line separator "\r\n"
+    char *command = strtok(client->read_buffer, "\r\n");
+    char *commands[MAX_COMMANDS];
+    int num_commands = 0;
+
+    while (command != NULL && num_commands < MAX_COMMANDS) {
+        commands[num_commands++] = command;
+        command = strtok(NULL, "\r\n");
     }
 
-    // Null-terminate the command and prepare for the next command
-    *end_of_command = '\0';
+    // Process each command separately
+    for (int i = 0; i < num_commands; ++i) {
+        command = commands[i];
 
-    // Log the command for debugging purposes
-    log_command_received(client, "%s", client->read_buffer);
+        // Log the command for debugging purposes
+        log_command_received(client, "%s", command);
 
-    // Process the USER command
-    if (strncmp(client->read_buffer, "USER ", 5) == 0) {
-        char *username = client->read_buffer + 5;
-        strncpy(client->username, username, sizeof(client->username) - 1);
-        send_response(client->fd, "+OK User name accepted, send PASS command\r\n");
-    }
-    // Process the PASS command
-    else if (strncmp(client->read_buffer, "PASS ", 5) == 0) {
-        char *password = client->read_buffer + 5;
-        if (handle_pass_command(client, password) == 0) {
-            client->authenticated = true;
+        // Convert the commands to uppercase
+        int case_sensitive = 1;
+
+         for (int j = 0; command[j] && case_sensitive; ++j) {
+            if(command[j]==' ')
+                case_sensitive = 0;
+            else if (isalpha(command[j]) && islower(command[j]))
+                command[j] = toupper(command[j]);
         }
-    }
-    // Process the QUIT command
-    else if (strncmp(client->read_buffer, "QUIT", 4) == 0) {
-        if (client->authenticated) {
-            cleanup_deleted_messages(client);
-        }
-        send_response(client->fd, "+OK See-ya\r\n");
-        return -1; // Return -1 to close the connection
-    }
-    // Process other commands only if authenticated
-    else if (client->authenticated) {
-        // Process the LIST command
-        if (strncmp(client->read_buffer, "LIST", 4) == 0) {
-            handle_list_command(client);
-        }
-        // Process the RETR command
-        else if (strncmp(client->read_buffer, "RETR ", 5) == 0) {
-            int mail_number = atoi(client->read_buffer + 5);
-            if (handle_retr_command(client, mail_number) == -1) {
-                // Handle error (if any)
+
+        // Process each command separately
+        if (strncmp(command, "USER ", 5) == 0) {
+            // Process the USER command
+            char *username = command + 5;
+            strncpy(client->username, username, sizeof(client->username) - 1);
+            send_response(client->fd, "+OK User name accepted, send PASS command\r\n");
+        } else if (strncmp(command, "PASS ", 5) == 0) {
+            // Process the PASS command
+            char *password = command + 5;
+            if (handle_pass_command(client, password) == 0) {
+                client->authenticated = true;
             }
-        }
-        // Process the DELE command
-        else if (strncmp(client->read_buffer, "DELE ", 5) == 0) {
-            int mail_number = atoi(client->read_buffer + 5);
-            if (handle_dele_command(client, mail_number) == -1) {
-                // Handle error (if any)
+        } else if (strncmp(command, "QUIT", 4) == 0) {
+            // Process the QUIT command
+            if (client->authenticated) {
+                cleanup_deleted_messages(client);
             }
+            send_response(client->fd, "+OK See-ya\r\n");
+            return -1; // Return -1 to close the connection
         }
-        else if (strncmp(client->read_buffer, "RSET", 4) == 0) {
+        // Process other commands only if authenticated
+        else if (client->authenticated) {
+            // Process the LIST command
+            if (strncmp(command, "LIST", 4) == 0) {
+                handle_list_command(client);
+            }
+            // Process the RETR command
+            else if (strncmp(command, "RETR ", 5) == 0) {
+                int mail_number = atoi(command + 5);
+                if (handle_retr_command(client, mail_number) == -1) {
+                    // Handle error (if any)
+                }
+            }
+            // Process the DELE command
+            else if (strncmp(command, "DELE ", 5) == 0) {
+                int mail_number = atoi(command + 5);
+                if (handle_dele_command(client, mail_number) == -1) {
+                    // Handle error (if any)
+                }
+            }
+            else if (strncmp(command, "RSET", 4) == 0) {
             handle_rset_command(client);
         }
-        else if (strncmp(client->read_buffer, "STAT", 4) == 0) {
+        else if (strncmp(command, "STAT", 4) == 0) {
             handle_stat_command(client);
         }
-        else if (strncmp(client->read_buffer, "CAPA", 4) == 0) {
+        else if (strncmp(command, "CAPA", 4) == 0) {
             handle_capa_command(client);
         }
         else if (is_admin(client->username)) {
-            if (strncmp(client->read_buffer, "ALL_CONNEC", 10) == 0) {
+            if (strncmp(command, "ALL_CONNEC", 10) == 0) {
                 handle_all_connec_command(client);
             }
-            else if (strncmp(client->read_buffer, "CURR_CONNEC", 11) == 0) {
+            else if (strncmp(command, "CURR_CONNEC", 11) == 0) {
                 handle_curr_connec_command(client);
             }
-            else if (strncmp(client->read_buffer, "BYTES_TRANS", 11) == 0) {
+            else if (strncmp(command, "BYTES_TRANS", 11) == 0) {
                 handle_bytes_trans_command(client);
             }
-            else if (strncmp(client->read_buffer, "USERS", 5) == 0) {
+            else if (strncmp(command, "USERS", 5) == 0) {
                 handle_users_command(client);
             }
-            else if (strncmp(client->read_buffer, "STATUS", 6) == 0) {
+            else if (strncmp(command, "STATUS", 6) == 0) {
                 handle_status_command(client);
             }
-            else if (strncmp(client->read_buffer, "MAX_USERS", 9) == 0) {
+            else if (strncmp(command, "MAX_USERS", 9) == 0) {
                 int new_max_users = -1; // Default to an invalid value
 
                 // Check if there is a space after "MAX_USERS"
                 if (client->read_buffer[9] == ' ') {
                     // Extract the integer value if present
-                    if (sscanf(client->read_buffer + 10, "%d", &new_max_users) < 1) {
+                    if (sscanf(command + 10, "%d", &new_max_users) < 1) {
                         send_response(client->fd, "-ERR Invalid argument for MAX_USERS command\r\n");
-                        log_error("Invalid argument for MAX_USERS command: %s", client->read_buffer);
+                        log_error("Invalid argument for MAX_USERS command: %s", command);
                         reset_read_buffer(client);
                         return 0; // Return 0 to keep the connection open
                     }
@@ -386,38 +402,38 @@ int process_pop3_command(client_state *client) {
                 // Call the handler with the new max users value or -1 if not provided
                 handle_max_users_command(client, new_max_users);
             }
-            else if (strncmp(client->read_buffer, "DELETE_USER ", 12) == 0) {
+            else if (strncmp(command, "DELETE_USER ", 12) == 0) {
                 char username[USERNAME_MAX_LENGTH];
-                sscanf(client->read_buffer + 12, "%s", username);
+                sscanf(command + 12, "%s", username);
                 handle_delete_user_command(client, username);
             }
-            else if (strncmp(client->read_buffer, "ADD_USER ", 9) == 0) {
+            else if (strncmp(command, "ADD_USER ", 9) == 0) {
                 char username[USERNAME_MAX_LENGTH], password[PASSWORD_MAX_LENGTH];
-                sscanf(client->read_buffer + 9, "%s %s", username, password);
+                sscanf(command + 9, "%s %s", username, password);
                 handle_add_user_command(client, username, password);
             }
-            else if (strncmp(client->read_buffer, "RESET_USER_PASSWORD ", 20) == 0) {
+            else if (strncmp(command, "RESET_USER_PASSWORD ", 20) == 0) {
                 char username[USERNAME_MAX_LENGTH];
-                sscanf(client->read_buffer + 20, "%s", username);
+                sscanf(command + 20, "%s", username);
                 handle_reset_user_password_command(client, username);
             }
-            else if (strncmp(client->read_buffer, "CHANGE_PASSWORD ", 16) == 0) {
+            else if (strncmp(command, "CHANGE_PASSWORD ", 16) == 0) {
                 char old_password[USERNAME_MAX_LENGTH], new_password[PASSWORD_MAX_LENGTH];
-                sscanf(client->read_buffer + 16, "%s %s", old_password, new_password);
+                sscanf(command + 16, "%s %s", old_password, new_password);
                 handle_change_password_command(client, old_password, new_password);
             }
             else {
                 send_response(client->fd, "-ERR Unknown admin command\r\n");
             }
 
+            }else {
+                // Handle unknown commands or insufficient privileges
+                send_response(client->fd, "-ERR Unknown command or insufficient privileges\r\n");
+            }
+        } else {
+            // Authentication required for other commands
+            send_response(client->fd, "-ERR Please authenticate using USER and PASS commands\r\n");
         }
-        else {
-            send_response(client->fd, "-ERR Unknown command or insufficient privileges\r\n");
-        }
-    } 
-    
-    else {
-        send_response(client->fd, "-ERR Please authenticate using USER and PASS commands\r\n");
     }
 
     // Reset the read buffer for the next command
@@ -425,4 +441,3 @@ int process_pop3_command(client_state *client) {
 
     return 0; // Keep the connection open unless QUIT was received
 }
-
