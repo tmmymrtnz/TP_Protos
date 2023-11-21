@@ -2,8 +2,19 @@
 #include <stdio.h>
 #include "include/user.h"
 #include "include/logger.h"
+#include <string.h>
+#include <ctype.h>
 
 // Example implementation of admin commands
+
+
+// Implement the toUpperString function
+ static void toUpperString(char *str) {
+    while (*str) {
+        *str = toupper((unsigned char)*str);
+        str++;
+    }
+}
 
 void handle_all_connec_command(client_state *client) {
     ServerStatus *status = get_server_status();
@@ -78,6 +89,26 @@ void handle_max_users_command(client_state *client, int max_users) {
     
     send_response(client->fd, response);
 }
+
+
+
+void handle_set_transform_command(client_state *client, char *transform) {
+    toUpperString(transform);
+    char response[BUFFER_SIZE];
+
+    if (strcmp(transform, "ON") == 0) {
+        usersStruct->isTransformed = 1;
+        snprintf(response, sizeof(response), "+OK Transform function is: %s\r\n", transform);
+    } else if (strcmp(transform, "OFF") == 0){
+        usersStruct->isTransformed = 0;
+        snprintf(response, sizeof(response), "+OK Transform function is: %s\r\n", transform);
+    }else{
+         snprintf(response, sizeof(response), "+OK Transform function is not changed\r\n");
+    }
+
+    send_response(client->fd, response);
+}
+
 
 void handle_delete_user_command(client_state *client, const char *username) {
     if (delete_user(username) == 0) {

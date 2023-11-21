@@ -19,6 +19,7 @@ void initialize_users(void) {
 
     usersStruct->count = 0;
     usersStruct->max_users = MAX_CLIENTS;
+    usersStruct->isTransformed = 0;
 
     // Directly add the default user
     strncpy(usersStruct->users[0].username, "default", sizeof(usersStruct->users[0].username));

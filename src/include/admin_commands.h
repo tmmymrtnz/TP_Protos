@@ -16,5 +16,6 @@ void handle_delete_user_command(client_state *client, const char *username);
 void handle_add_user_command(client_state *client, const char *username, const char *password);
 void handle_reset_user_password_command(client_state *client, const char *username);
 void handle_change_password_command(client_state *client, const char *old_password, const char *new_password);
+void handle_set_transform_command(client_state *client, char * transform);
 
 #endif // ADMIN_COMMANDS_H

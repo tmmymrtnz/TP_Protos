@@ -115,7 +115,7 @@ void handle_list_command(client_state *client) {
             struct stat file_stat;
             if (stat(full_path, &file_stat) == 0) {
                 count++;
-                snprintf(response, sizeof(response), "%d %lld\r\n", count, file_stat.st_size);
+                snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
                 strncat(list_response, response, sizeof(list_response) - strlen(list_response) - 1);
             }
         }
@@ -128,8 +128,9 @@ void handle_list_command(client_state *client) {
 }
 
 
-int handle_retr_command(client_state *client, int mail_number) {
+int handle_retr_command(client_state* client, int mail_number) {
     log_command_received(client, "RETR", "%d", mail_number);
+    
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return -1;
@@ -138,35 +139,52 @@ int handle_retr_command(client_state *client, int mail_number) {
     char mail_file[256];
     snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, mail_number);
 
-    // Transform the email using transform_mail function
-    transform_mail(mail_file);
-
-    // Open the transformed email file for reading
-    // Assuming the transformed email is saved back to the same file
-    FILE *transformed_file = fopen(mail_file, "r");
-    if (!transformed_file) {
-        send_response(client->fd, "-ERR Transformed message not found\r\n");
-        return -1;
-    }
-
-    // Send the transformed message content
-    char buffer[1024];
-    size_t bytes_read;
-
-    fseek(transformed_file, 0, SEEK_END);
-    long transformed_size = ftell(transformed_file);
-    fseek(transformed_file, 0, SEEK_SET);
-
-    snprintf(buffer, sizeof(buffer), "+OK %ld octets\r\n", transformed_size);
-    send_response(client->fd, buffer);
-
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), transformed_file)) > 0) {
-        if (send(client->fd, buffer, bytes_read, 0) == -1) {
-            fclose(transformed_file);
+    // Check if mail transformation is required
+    if (usersStruct->isTransformed == 1) {
+        // Transform the email using transform_mail function
+        char* transformed_content = transform_mail(mail_file);
+        if (transformed_content == NULL) {
+            send_response(client->fd, "-ERR Transformation failed\r\n");
             return -1;
         }
+
+        // Calculate the size of transformed content
+        long transformed_size = strlen(transformed_content);
+
+        // Send the transformed message content
+        send_response(client->fd, "+OK Transformed content follows\r\n");
+
+        if (send(client->fd, transformed_content, transformed_size, 0) == -1) {
+            free(transformed_content);
+            send_response(client->fd, "-ERR Failed to send transformed content\r\n");
+            return -1;
+        }
+
+        free(transformed_content);
+    } else {
+        // Read the email content and send it directly without transformation
+        FILE* mail_fp = fopen(mail_file, "r");
+        if (!mail_fp) {
+            send_response(client->fd, "-ERR Failed to open mail file\r\n");
+            return -1;
+        }
+
+        // Send the initial response
+        send_response(client->fd, "+OK Mail content follows\r\n");
+
+        char buffer[1024];
+        size_t bytes_read;
+
+        while ((bytes_read = fread(buffer, 1, sizeof(buffer), mail_fp)) > 0) {
+            if (send(client->fd, buffer, bytes_read, 0) == -1) {
+                fclose(mail_fp);
+                send_response(client->fd, "-ERR Failed to send mail content\r\n");
+                return -1;
+            }
+        }
+
+        fclose(mail_fp);
     }
-    fclose(transformed_file);
 
     // Send the final period to indicate the end of the email content
     send_response(client->fd, "\r\n.\r\n");
@@ -270,6 +288,7 @@ void handle_capa_command(client_state *client) {
                                  "ADD_USER <username> <password>\r\n"
                                  "RESET_USER_PASSWORD <username>\r\n"
                                  "CHANGE_PASSWORD <old_password> <new_password>\r\n"
+                                 "TRANSFORM <on/off>\r\n"
                                  ".\r\n");
     } else {
         send_response(client->fd, "+OK Capability list follows\r\n"
@@ -520,6 +539,11 @@ int process_pop3_command(client_state *client) {
                     char old_password[USERNAME_MAX_LENGTH], new_password[PASSWORD_MAX_LENGTH];
                     sscanf(command + 16, "%s %s", old_password, new_password);
                     handle_change_password_command(client, old_password, new_password);
+                }
+                else if (strncmp(command, "TRANSFORM ", 10) == 0) {
+                    char transform[10];
+                    sscanf(command + 10, "%s", transform);
+                    handle_set_transform_command(client, transform);
                 }
                 else {
                     send_response(client->fd, "-ERR Unknown admin command\r\n");

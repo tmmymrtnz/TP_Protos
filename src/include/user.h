@@ -18,6 +18,7 @@ typedef struct {
     TUser * users;
     int count;
     int max_users;
+    int isTransformed;
 } TUsers;
 
 TUsers * usersStruct;
