@@ -2,6 +2,8 @@
 #define POP3_COMMANDS_H
 
 #include <stdbool.h>
+#include <dirent.h>
+#include <stddef.h>
 
 #define BUFFER 1024
 #define MAX_MESSAGES 128
@@ -43,6 +45,14 @@ void handle_rset_command(client_state *client);
 void handle_stat_command(client_state *client);
 
 void handle_capa_command(client_state *client);
+
+void handle_uidl_command(client_state *client, char *argument);
+
+void handle_uidl_for_specific_message(client_state *client, DIR *dir, int mail_number, const char *user_dir);
+
+void handle_uidl_for_all_messages(client_state *client, DIR *dir, const char *user_dir);
+
+void generate_unique_id(const char *filename, char *unique_id, size_t max_size);
 
 void send_response(int client_socket, const char *response);
 

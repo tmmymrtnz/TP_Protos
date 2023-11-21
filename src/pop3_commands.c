@@ -13,6 +13,7 @@
 #include "include/user.h"
 #include "include/admin_commands.h"
 #include "include/logger.h"
+#include "include/transform_mail.h"
 
 #define BASE_DIR "src/maildir/"
 
@@ -114,7 +115,7 @@ void handle_list_command(client_state *client) {
             struct stat file_stat;
             if (stat(full_path, &file_stat) == 0) {
                 count++;
-                snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
+                snprintf(response, sizeof(response), "%d %lld\r\n", count, file_stat.st_size);
                 strncat(list_response, response, sizeof(list_response) - strlen(list_response) - 1);
             }
         }
@@ -137,37 +138,38 @@ int handle_retr_command(client_state *client, int mail_number) {
     char mail_file[256];
     snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, mail_number);
 
-    FILE *file = fopen(mail_file, "r");
-    if (!file) {
-        send_response(client->fd, "-ERR Message not found\r\n");
+    // Transform the email using transform_mail function
+    transform_mail(mail_file);
+
+    // Open the transformed email file for reading
+    // Assuming the transformed email is saved back to the same file
+    FILE *transformed_file = fopen(mail_file, "r");
+    if (!transformed_file) {
+        send_response(client->fd, "-ERR Transformed message not found\r\n");
         return -1;
     }
 
-    // Get file size
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    // Send response with message size
-    char size_response[256];
-    snprintf(size_response, sizeof(size_response), "+OK %ld octets\r\n", file_size);
-    send_response(client->fd, size_response);
-
-    // Send message content
+    // Send the transformed message content
     char buffer[1024];
     size_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+
+    fseek(transformed_file, 0, SEEK_END);
+    long transformed_size = ftell(transformed_file);
+    fseek(transformed_file, 0, SEEK_SET);
+
+    snprintf(buffer, sizeof(buffer), "+OK %ld octets\r\n", transformed_size);
+    send_response(client->fd, buffer);
+
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), transformed_file)) > 0) {
         if (send(client->fd, buffer, bytes_read, 0) == -1) {
-            // Handle send errors
-            fclose(file);
+            fclose(transformed_file);
             return -1;
         }
     }
+    fclose(transformed_file);
 
     // Send the final period to indicate the end of the email content
     send_response(client->fd, "\r\n.\r\n");
-
-    fclose(file);
     return 0;
 }
 
@@ -284,6 +286,96 @@ void handle_capa_command(client_state *client) {
     }
 }
 
+void handle_uidl_command(client_state *client, char *argument) {
+    log_command_received(client, "UIDL", argument);
+    if (!client->authenticated) {
+        send_response(client->fd, "-ERR Not logged in\r\n");
+        return;
+    }
+
+    char user_dir[256];
+    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", BASE_DIR, client->username);
+
+    DIR *dir = opendir(user_dir);
+    if (!dir) {
+        send_response(client->fd, "-ERR Mailbox not found\r\n");
+        return;
+    }
+
+    if (argument) {
+        int mail_number = atoi(argument);
+        handle_uidl_for_specific_message(client, dir, mail_number, user_dir);
+    } else {
+        handle_uidl_for_all_messages(client, dir, user_dir);
+    }
+
+    closedir(dir);
+}
+
+void handle_uidl_for_specific_message(client_state *client, DIR *dir, int mail_number, const char *user_dir) {
+    struct dirent *entry;
+    int count = 0;
+    char file_path[512]; // Buffer to hold the full path of the file
+
+    while ((entry = readdir(dir))) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue; // Skip . and .. entries
+        }
+
+        // Construct the full path to the file
+        snprintf(file_path, sizeof(file_path), "%s/%s", user_dir, entry->d_name);
+
+        if (is_regular_file(file_path)) {
+            count++;
+            if (count == mail_number) {
+                char unique_id[256];
+                generate_unique_id(entry->d_name, unique_id, sizeof(unique_id));
+
+                char response[512];
+                snprintf(response, sizeof(response), "+OK %d %s\r\n", mail_number, unique_id);
+                send_response(client->fd, response);
+                return;
+            }
+        }
+    }
+
+    send_response(client->fd, "-ERR No such message\r\n");
+}
+
+void handle_uidl_for_all_messages(client_state *client, DIR *dir, const char *user_dir) {
+    struct dirent *entry;
+    int count = 0;
+    char uidl_response[4096] = "+OK\r\n";
+    char file_path[512]; // Buffer to hold the full path of the file
+
+    while ((entry = readdir(dir))) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue; // Skip . and .. entries
+        }
+
+        // Construct the full path to the file
+        snprintf(file_path, sizeof(file_path), "%s/%s", user_dir, entry->d_name);
+        
+        if (is_regular_file(file_path)) {
+            count++;
+            char unique_id[256];
+            generate_unique_id(entry->d_name, unique_id, sizeof(unique_id));
+
+            char response[512];
+            snprintf(response, sizeof(response), "%d %s\r\n", count, unique_id);
+            strncat(uidl_response, response, sizeof(uidl_response) - strlen(uidl_response) - 1);
+        }
+    }
+
+    strncat(uidl_response, ".\r\n", sizeof(uidl_response) - strlen(uidl_response) - 1);
+    send_response(client->fd, uidl_response);
+}
+
+void generate_unique_id(const char *filename, char *unique_id, size_t max_size) {
+    // Generate a unique identifier based on filename or other attributes
+    snprintf(unique_id, max_size, "%s", filename);
+}
+
 // Helper function to reset the read buffer after processing a command
 static void reset_read_buffer(client_state *client) {
     memset(client->read_buffer, 0, sizeof(client->read_buffer));
@@ -360,71 +452,78 @@ int process_pop3_command(client_state *client) {
                     // Handle error (if any)
                 }
             }
-            else if (strncmp(command, "RSET", 4) == 0) {
-            handle_rset_command(client);
-        }
-        else if (strncmp(command, "STAT", 4) == 0) {
-            handle_stat_command(client);
-        }
-        else if (strncmp(command, "CAPA", 4) == 0) {
-            handle_capa_command(client);
-        }
-        else if (is_admin(client->username)) {
-            if (strncmp(command, "ALL_CONNEC", 10) == 0) {
-                handle_all_connec_command(client);
-            }
-            else if (strncmp(command, "CURR_CONNEC", 11) == 0) {
-                handle_curr_connec_command(client);
-            }
-            else if (strncmp(command, "BYTES_TRANS", 11) == 0) {
-                handle_bytes_trans_command(client);
-            }
-            else if (strncmp(command, "USERS", 5) == 0) {
-                handle_users_command(client);
-            }
-            else if (strncmp(command, "STATUS", 6) == 0) {
-                handle_status_command(client);
-            }
-            else if (strncmp(command, "MAX_USERS", 9) == 0) {
-                int new_max_users = -1; // Default to an invalid value
-
-                // Check if there is a space after "MAX_USERS"
-                if (client->read_buffer[9] == ' ') {
-                    // Extract the integer value if present
-                    if (sscanf(command + 10, "%d", &new_max_users) < 1) {
-                        send_response(client->fd, "-ERR Invalid argument for MAX_USERS command\r\n");
-                        log_error("Invalid argument for MAX_USERS command: %s", command);
-                        reset_read_buffer(client);
-                        return 0; // Return 0 to keep the connection open
-                    }
+            else if (strncmp(client->read_buffer, "UIDL", 4) == 0) {
+                char *argument = NULL;
+                if (strlen(client->read_buffer) > 5) {
+                    argument = client->read_buffer + 5;
                 }
-                
-                // Call the handler with the new max users value or -1 if not provided
-                handle_max_users_command(client, new_max_users);
+                handle_uidl_command(client, argument);
             }
-            else if (strncmp(command, "DELETE_USER ", 12) == 0) {
-                char username[USERNAME_MAX_LENGTH];
-                sscanf(command + 12, "%s", username);
-                handle_delete_user_command(client, username);
+            else if (strncmp(command, "RSET", 4) == 0) {
+                handle_rset_command(client);
             }
-            else if (strncmp(command, "ADD_USER ", 9) == 0) {
-                char username[USERNAME_MAX_LENGTH], password[PASSWORD_MAX_LENGTH];
-                sscanf(command + 9, "%s %s", username, password);
-                handle_add_user_command(client, username, password);
+            else if (strncmp(command, "STAT", 4) == 0) {
+                handle_stat_command(client);
             }
-            else if (strncmp(command, "RESET_USER_PASSWORD ", 20) == 0) {
-                char username[USERNAME_MAX_LENGTH];
-                sscanf(command + 20, "%s", username);
-                handle_reset_user_password_command(client, username);
+            else if (strncmp(command, "CAPA", 4) == 0) {
+                handle_capa_command(client);
             }
-            else if (strncmp(command, "CHANGE_PASSWORD ", 16) == 0) {
-                char old_password[USERNAME_MAX_LENGTH], new_password[PASSWORD_MAX_LENGTH];
-                sscanf(command + 16, "%s %s", old_password, new_password);
-                handle_change_password_command(client, old_password, new_password);
-            }
-            else {
-                send_response(client->fd, "-ERR Unknown admin command\r\n");
-            }
+            else if (is_admin(client->username)) {
+                if (strncmp(command, "ALL_CONNEC", 10) == 0) {
+                    handle_all_connec_command(client);
+                }
+                else if (strncmp(command, "CURR_CONNEC", 11) == 0) {
+                    handle_curr_connec_command(client);
+                }
+                else if (strncmp(command, "BYTES_TRANS", 11) == 0) {
+                    handle_bytes_trans_command(client);
+                }
+                else if (strncmp(command, "USERS", 5) == 0) {
+                    handle_users_command(client);
+                }
+                else if (strncmp(command, "STATUS", 6) == 0) {
+                    handle_status_command(client);
+                }
+                else if (strncmp(command, "MAX_USERS", 9) == 0) {
+                    int new_max_users = -1; // Default to an invalid value
+
+                    // Check if there is a space after "MAX_USERS"
+                    if (client->read_buffer[9] == ' ') {
+                        // Extract the integer value if present
+                        if (sscanf(command + 10, "%d", &new_max_users) < 1) {
+                            send_response(client->fd, "-ERR Invalid argument for MAX_USERS command\r\n");
+                            log_error("Invalid argument for MAX_USERS command: %s", command);
+                            reset_read_buffer(client);
+                            return 0; // Return 0 to keep the connection open
+                        }
+                    }
+                    
+                    // Call the handler with the new max users value or -1 if not provided
+                    handle_max_users_command(client, new_max_users);
+                }
+                else if (strncmp(command, "DELETE_USER ", 12) == 0) {
+                    char username[USERNAME_MAX_LENGTH];
+                    sscanf(command + 12, "%s", username);
+                    handle_delete_user_command(client, username);
+                }
+                else if (strncmp(command, "ADD_USER ", 9) == 0) {
+                    char username[USERNAME_MAX_LENGTH], password[PASSWORD_MAX_LENGTH];
+                    sscanf(command + 9, "%s %s", username, password);
+                    handle_add_user_command(client, username, password);
+                }
+                else if (strncmp(command, "RESET_USER_PASSWORD ", 20) == 0) {
+                    char username[USERNAME_MAX_LENGTH];
+                    sscanf(command + 20, "%s", username);
+                    handle_reset_user_password_command(client, username);
+                }
+                else if (strncmp(command, "CHANGE_PASSWORD ", 16) == 0) {
+                    char old_password[USERNAME_MAX_LENGTH], new_password[PASSWORD_MAX_LENGTH];
+                    sscanf(command + 16, "%s %s", old_password, new_password);
+                    handle_change_password_command(client, old_password, new_password);
+                }
+                else {
+                    send_response(client->fd, "-ERR Unknown admin command\r\n");
+                }
 
             }else {
                 // Handle unknown commands or insufficient privileges
