@@ -21,7 +21,7 @@ typedef struct {
     int isTransformed;
 } TUsers;
 
-TUsers * usersStruct;
+TUsers *getUsersStruct();
 
 //Inicializa la estructura y agrega usuarios default.
 void initialize_users(void);
