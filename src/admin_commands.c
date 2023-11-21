@@ -31,6 +31,7 @@ void handle_bytes_trans_command(client_state *client) {
 
 void handle_users_command(client_state *client) {
     char response[BUFFER_SIZE];
+    TUsers *usersStruct = getUsersStruct();
     strcpy(response, "+OK List of users:\r\n");
 
     for (int i = 0; i < usersStruct->count; i++) {
@@ -66,6 +67,7 @@ void handle_status_command(client_state *client) {
 
 void handle_max_users_command(client_state *client, int max_users) {
     char response[BUFFER_SIZE];
+    TUsers *usersStruct = getUsersStruct();
 
     if (max_users == -1) {
         // If new_max_users is -1, it means we just want to retrieve the current setting

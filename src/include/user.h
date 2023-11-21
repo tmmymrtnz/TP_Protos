@@ -20,7 +20,7 @@ typedef struct {
     int max_users;
 } TUsers;
 
-TUsers * usersStruct;
+TUsers *getUsersStruct();
 
 //Inicializa la estructura y agrega usuarios default.
 void initialize_users(void);

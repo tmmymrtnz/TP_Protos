@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include "../include/user.h"
 
+static TUsers *usersStruct;
+
+TUsers *getUsersStruct() {
+    return usersStruct;
+}
+
 void initialize_users(void) {
     usersStruct = malloc(sizeof(TUsers));
     if (usersStruct == NULL) {
