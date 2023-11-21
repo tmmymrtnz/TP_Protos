@@ -135,6 +135,7 @@ int handle_retr_command(client_state* client, int mail_number) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return -1;
     }
+    TUsers *usersStruct = getUsersStruct();
 
     char mail_file[256];
     snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, mail_number);

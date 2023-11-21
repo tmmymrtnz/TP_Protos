@@ -97,6 +97,7 @@ void handle_max_users_command(client_state *client, int max_users) {
 void handle_set_transform_command(client_state *client, char *transform) {
     toUpperString(transform);
     char response[BUFFER_SIZE];
+    TUsers *usersStruct = getUsersStruct();
 
     if (strcmp(transform, "ON") == 0) {
         usersStruct->isTransformed = 1;
