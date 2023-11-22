@@ -41,7 +41,7 @@ test/%_test.o: test/%_test.c
 test: $(TEST_OBJECTS) $(TARGET_OBJECTS_MINUS_MAIN)
 
 clean:
-	rm -f **/*.o **/*.d
+	find . -type f \( -name '*.o' -o -name '*.d' \) -delete
 	rm -f $(TARGET) *_test
 
 -include $(TARGET_OBJECTS:%.o=%.d) $(TEST_OBJECTS:%.o=%.d)

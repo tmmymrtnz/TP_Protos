@@ -16,33 +16,37 @@ bool is_valid_port(int port) {
     return port > 0 && port <= 65535;
 }
 
+char* my_strdup(const char* s) {
+    char* new_str = malloc(strlen(s) + 1);
+    if (new_str == NULL) {
+        perror("Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(new_str, s);
+    return new_str;
+}
+
 void parse_options(int argc, char *argv[], ServerConfig *config) {
-    int opt;
-    while ((opt = getopt(argc, argv, "p:P:d:t:")) != -1) {
-        switch (opt) {
-            case 'p':
-                config->ipv4_port = atoi(optarg);
-                if (!is_valid_port(config->ipv4_port)) {
-                    fprintf(stderr, "Invalid IPv4 port number: %d\n", config->ipv4_port);
-                    exit(EXIT_FAILURE);
-                }
-                break;
-            case 'P':
-                config->ipv6_port = atoi(optarg);
-                if (!is_valid_port(config->ipv6_port)) {
-                    fprintf(stderr, "Invalid IPv6 port number: %d\n", config->ipv6_port);
-                    exit(EXIT_FAILURE);
-                }
-                break;
-            case 'd':
-                config->mail_dir = strdup(optarg);
-                break;
-            case 't':
-                config->transform_command = strdup(optarg);
-                break;
-            default: /* '?' */
-                fprintf(stderr, "Usage: %s [-p IPv4_port] [-P IPv6_port] [-d mail_directory] [-t transform_command]\n", argv[0]);
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+            config->ipv4_port = atoi(argv[++i]);
+            if (!is_valid_port(config->ipv4_port)) {
+                fprintf(stderr, "Invalid IPv4 port number: %d\n", config->ipv4_port);
                 exit(EXIT_FAILURE);
+            }
+        } else if (strcmp(argv[i], "-P") == 0 && i + 1 < argc) {
+            config->ipv6_port = atoi(argv[++i]);
+            if (!is_valid_port(config->ipv6_port)) {
+                fprintf(stderr, "Invalid IPv6 port number: %d\n", config->ipv6_port);
+                exit(EXIT_FAILURE);
+            }
+        } else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
+            config->mail_dir = my_strdup(argv[++i]);
+        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+            config->transform_command = my_strdup(argv[++i]);
+        } else {
+            fprintf(stderr, "Usage: %s [-p IPv4_port] [-P IPv6_port] [-d mail_directory] [-t transform_command]\n", argv[0]);
+            exit(EXIT_FAILURE);
         }
     }
 }
@@ -128,6 +132,13 @@ int main(int argc, char *argv[]) {
     }
 
     initialize_users();
+
+    //print all the config of the server in the log
+    log_info("Server configuration:");
+    log_info("IPv4 port: %d", server_config->ipv4_port);
+    log_info("IPv6 port: %d", server_config->ipv6_port);
+    log_info("Mail directory: %s", server_config->mail_dir);
+    log_info("Transform command: %s", server_config->transform_command);
 
     // Accept incoming connections
     puts("Waiting for connections ...");
