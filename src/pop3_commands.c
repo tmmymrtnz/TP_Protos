@@ -151,12 +151,10 @@ int handle_retr_command(client_state* client, int mail_number) {
         // Calculate the size of transformed content
         long transformed_size = strlen(transformed_content);
 
-        // Send the transformed message content
-        send_response(client->fd, "+OK Transformed content follows\r\n");
-
+       
         if (send(client->fd, transformed_content, transformed_size, 0) == -1) {
             free(transformed_content);
-            send_response(client->fd, "-ERR Failed to send transformed content\r\n");
+            send_response(client->fd, "-ERR Failed to retreive mail\r\n");
             return -1;
         }
 
