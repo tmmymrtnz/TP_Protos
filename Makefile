@@ -2,7 +2,8 @@ TARGET := main
 DEBUG := y
 ASAN := y
 
-CC := gcc
+# Default to gcc, can be overridden by calling `make CC=clang`
+CC ?= gcc
 PACKAGES := check
 
 TARGET_SOURCES := $(shell find src/ -name '*.c')
@@ -22,6 +23,7 @@ ifeq ($(DEBUG), y)
 endif
 ifeq ($(ASAN), y)
 	CFLAGS += -fsanitize=address
+	LDFLAGS += -fsanitize=address
 endif
 ifneq ($(and $(DEBUG),$(ASAN)),y)
 	CFLAGS += -O3
@@ -33,12 +35,10 @@ endif
 $(TARGET): $(TARGET_OBJECTS)
 	$(CC) $(CFLAGS) $(TARGET_OBJECTS) -o $@ $(LDFLAGS)
 
-
 test/%_test.o: test/%_test.c
 	$(CC) $(TEST_CFLAGS) -c $< -o $@
 
 test: $(TEST_OBJECTS) $(TARGET_OBJECTS_MINUS_MAIN)
-
 
 clean:
 	rm -f **/*.o **/*.d
