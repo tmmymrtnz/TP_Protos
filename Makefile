@@ -15,6 +15,7 @@ TEST_OBJECTS := $(TEST_SOURCES:%.c=%.o)
 INCLUDES := -Iinclude -Isrc -Isrc/include $(shell pkg-config --cflags $(PACKAGES))
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -MMD $(INCLUDES)
 LDFLAGS := -lpthread $(shell pkg-config --libs $(PACKAGES))
+TEST_CFLAGS := $(filter-out -Werror, $(CFLAGS))
 
 ifeq ($(DEBUG), y)
 	CFLAGS += -ggdb3 -O0
@@ -33,8 +34,8 @@ $(TARGET): $(TARGET_OBJECTS)
 	$(CC) $(CFLAGS) $(TARGET_OBJECTS) -o $@ $(LDFLAGS)
 
 
-%_test: test/%_test.o $(TARGET_OBJECTS_MINUS_MAIN)
-	$(CC) $(CFLAGS) test/$*_test.o $(TARGET_OBJECTS_MINUS_MAIN) -o $@ $(LDFLAGS)
+test/%_test.o: test/%_test.c
+	$(CC) $(TEST_CFLAGS) -c $< -o $@
 
 test: $(TEST_OBJECTS) $(TARGET_OBJECTS_MINUS_MAIN)
 

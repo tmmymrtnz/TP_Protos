@@ -22,7 +22,7 @@ typedef struct {
     char transform_app[BUFFER_SIZE];
 } TUsers;
 
-TUsers *getUsersStruct();
+TUsers *getUsersStruct(void);
 
 //Inicializa la estructura y agrega usuarios default.
 void initialize_users(void);

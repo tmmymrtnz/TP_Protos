@@ -2,15 +2,17 @@
 #include <string.h>
 #include <stdio.h>
 #include "../include/user.h"
+#include "../include/logger.h"
 
 static TUsers *usersStruct;
 
-TUsers *getUsersStruct() {
+TUsers *getUsersStruct(void) {
     return usersStruct;
 }
 
 void initialize_users(void) {
     usersStruct = malloc(sizeof(TUsers));
+    ServerConfig *server_config = get_server_config();
     if (usersStruct == NULL) {
         perror("Error: could not allocate users structure");
         exit(1);
@@ -26,7 +28,7 @@ void initialize_users(void) {
     usersStruct->count = 0;
     usersStruct->max_users = MAX_CLIENTS;
 
-    strncpy(usersStruct->transform_app, "sed s/[Aa]/4/g|sed s/[Ee]/3/g|sed s/[iI]/1/g|sed s/[Oo]/0/g", 60);
+    strncpy(usersStruct->transform_app, server_config->transform_command, 60);
     usersStruct->transform_app[60] = '\0'; // Ensure null-termination
 
 

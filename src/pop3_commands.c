@@ -50,7 +50,6 @@ int is_regular_file(const char *path) {
 }
 
 int handle_user_command(client_state *client, char *arg) {
-    log_command_received(client, "USER", arg);
     // Ensure the client has provided an argument
     if (!arg || strlen(arg) == 0) {
         // If an error occurs
@@ -68,7 +67,6 @@ int handle_user_command(client_state *client, char *arg) {
 }
 
 int handle_pass_command(client_state *client, char *password) {
-    log_command_received(client, "PASS", password);
     // Ensure the client has provided a password
     if (!password || strlen(password) == 0) {
         send_response(client->fd, "-ERR Password required\r\n");
@@ -87,7 +85,6 @@ int handle_pass_command(client_state *client, char *password) {
 }
 
 void handle_list_command(client_state *client) {
-    log_command_received(client, "LIST", NULL);
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return;
@@ -115,7 +112,7 @@ void handle_list_command(client_state *client) {
             struct stat file_stat;
             if (stat(full_path, &file_stat) == 0) {
                 count++;
-                snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
+                snprintf(response, sizeof(response), "%d %lld\r\n", count, file_stat.st_size);
                 strncat(list_response, response, sizeof(list_response) - strlen(list_response) - 1);
             }
         }
@@ -129,7 +126,6 @@ void handle_list_command(client_state *client) {
 
 
 int handle_retr_command(client_state* client, int mail_number) {
-    log_command_received(client, "RETR", "%d", mail_number);
     
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
@@ -169,7 +165,6 @@ int handle_retr_command(client_state* client, int mail_number) {
 }
 
 int handle_dele_command(client_state *client, int mail_number) {
-    log_command_received(client, "DELE", "%d", mail_number);
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return -1;
@@ -203,7 +198,6 @@ void handle_rset_command(client_state *client) {
 }
 
 void handle_stat_command(client_state *client) {
-    log_command_received(client, "STAT", NULL);
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return;
@@ -250,7 +244,6 @@ void handle_stat_command(client_state *client) {
 }
 
 void handle_capa_command(client_state *client) {
-    log_command_received(client, "CAPA", NULL);
     if (is_admin(client->username)) {
         send_response(client->fd, "+OK Capability list follows\r\n"
                                  "CAPA\r\n"
@@ -283,7 +276,6 @@ void handle_capa_command(client_state *client) {
 }
 
 void handle_uidl_command(client_state *client, char *argument) {
-    log_command_received(client, "UIDL", argument);
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return;
