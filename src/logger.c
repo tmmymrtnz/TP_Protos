@@ -2,7 +2,22 @@
 #include <stdarg.h>
 #include "include/pop3_commands.h"
 
-static ServerStatus server_status = {0};
+static ServerStatus server_status = {
+    .total_connections = 0,
+    .current_connections = 0,
+    .bytes_transmitted = 0
+};
+
+static ServerConfig server_config = {
+    .ipv4_port = DEFAULT_IPV4_PORT,
+    .ipv6_port = DEFAULT_IPV6_PORT,
+    .mail_dir = "src/maildir/",
+    .transform_command = "cat"
+};
+
+ServerConfig *get_server_config(void) {
+    return &server_config;
+}
 
 ServerStatus *get_server_status(void) {
     return &server_status;

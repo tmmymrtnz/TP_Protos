@@ -6,6 +6,11 @@
 #include <sys/types.h>
 #include "pop3_commands.h"
 
+#define DEFAULT_IPV4_PORT 1110
+#define DEFAULT_IPV6_PORT 9090
+#define MAX_CLIENTS 1000
+#define BUFFER_SIZE 1024
+
 // Log levels
 typedef enum {
     LOG_DEBUG,
@@ -20,6 +25,15 @@ typedef struct {
     ssize_t bytes_transmitted;
 } ServerStatus;
 
+typedef struct {
+    char *user;
+    char *pass;
+    int ipv4_port;
+    int ipv6_port;
+    char *mail_dir;
+    char *transform_command;
+} ServerConfig;
+
 // Function to log a message with a specific level
 void log_message(LogLevel level, const char *format, ...);
 void log_info(const char *format, ...);
@@ -28,6 +42,7 @@ void log_error(const char *format, ...);
 void log_debug(const char *format, ...);
 
 ServerStatus *get_server_status(void);
+ServerConfig *get_server_config(void);
 
 void log_new_connection(int socket_fd, const char *ip, int port);
 void log_command_received(client_state *client, const char *command_format, ...);
