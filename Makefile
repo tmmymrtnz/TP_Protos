@@ -33,7 +33,7 @@ endif
 
 # Link target
 $(TARGET): $(TARGET_OBJECTS)
-	$(CC) $(CFLAGS) $(TARGET_OBJECTS) -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(TARGET_OBJECTS) -o pop3d $(LDFLAGS)
 
 test/%_test.o: test/%_test.c
 	$(CC) $(TEST_CFLAGS) -c $< -o $@

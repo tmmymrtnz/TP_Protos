@@ -1,5 +1,6 @@
 # Compilation artifacts
 main
+pop3d
 buffer_test
 hello_test
 netutils_test
