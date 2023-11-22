@@ -25,7 +25,10 @@ void initialize_users(void) {
 
     usersStruct->count = 0;
     usersStruct->max_users = MAX_CLIENTS;
-    usersStruct->isTransformed = 0;
+
+    strncpy(usersStruct->transform_app, "sed s/[Aa]/4/g|sed s/[Ee]/3/g|sed s/[iI]/1/g|sed s/[Oo]/0/g", 60);
+    usersStruct->transform_app[60] = '\0'; // Ensure null-termination
+
 
     // Directly add the default user
     strncpy(usersStruct->users[0].username, "default", sizeof(usersStruct->users[0].username));

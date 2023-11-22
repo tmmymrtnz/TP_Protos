@@ -140,10 +140,9 @@ int handle_retr_command(client_state* client, int mail_number) {
     char mail_file[256];
     snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, mail_number);
 
-    // Check if mail transformation is required
-    if (usersStruct->isTransformed == 1) {
+
         // Transform the email using transform_mail function
-        char* transformed_content = transform_mail(mail_file);
+        char* transformed_content = transform_mail(mail_file,usersStruct->transform_app);
         if (transformed_content == NULL) {
             send_response(client->fd, "-ERR Transformation failed\r\n");
             return -1;
@@ -162,30 +161,7 @@ int handle_retr_command(client_state* client, int mail_number) {
         }
 
         free(transformed_content);
-    } else {
-        // Read the email content and send it directly without transformation
-        FILE* mail_fp = fopen(mail_file, "r");
-        if (!mail_fp) {
-            send_response(client->fd, "-ERR Failed to open mail file\r\n");
-            return -1;
-        }
-
-        // Send the initial response
-        send_response(client->fd, "+OK Mail content follows\r\n");
-
-        char buffer[1024];
-        size_t bytes_read;
-
-        while ((bytes_read = fread(buffer, 1, sizeof(buffer), mail_fp)) > 0) {
-            if (send(client->fd, buffer, bytes_read, 0) == -1) {
-                fclose(mail_fp);
-                send_response(client->fd, "-ERR Failed to send mail content\r\n");
-                return -1;
-            }
-        }
-
-        fclose(mail_fp);
-    }
+    
 
     // Send the final period to indicate the end of the email content
     send_response(client->fd, "\r\n.\r\n");
@@ -289,7 +265,7 @@ void handle_capa_command(client_state *client) {
                                  "ADD_USER <username> <password>\r\n"
                                  "RESET_USER_PASSWORD <username>\r\n"
                                  "CHANGE_PASSWORD <old_password> <new_password>\r\n"
-                                 "TRANSFORM <on/off>\r\n"
+                                 "TRANSFORM <transform application>\r\n"
                                  ".\r\n");
     } else {
         send_response(client->fd, "+OK Capability list follows\r\n"

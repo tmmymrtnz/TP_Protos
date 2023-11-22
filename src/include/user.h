@@ -4,6 +4,7 @@
 #include <stdio.h>
 #define MAX_CLIENTS 1000
 
+#define BUFFER_SIZE 1024
 #define USERNAME_MAX_LENGTH 256
 #define PASSWORD_MAX_LENGTH 256
 
@@ -18,7 +19,7 @@ typedef struct {
     TUser * users;
     int count;
     int max_users;
-    int isTransformed;
+    char transform_app[BUFFER_SIZE];
 } TUsers;
 
 TUsers *getUsersStruct();

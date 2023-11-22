@@ -8,14 +8,6 @@
 // Example implementation of admin commands
 
 
-// Implement the toUpperString function
- static void toUpperString(char *str) {
-    while (*str) {
-        *str = toupper((unsigned char)*str);
-        str++;
-    }
-}
-
 void handle_all_connec_command(client_state *client) {
     ServerStatus *status = get_server_status();
     char response[256];
@@ -93,22 +85,15 @@ void handle_max_users_command(client_state *client, int max_users) {
 }
 
 
-
 void handle_set_transform_command(client_state *client, char *transform) {
-    toUpperString(transform);
     char response[BUFFER_SIZE];
     TUsers *usersStruct = getUsersStruct();
+    
+   
+    strncpy(usersStruct->transform_app, transform, strlen(transform) + 1);
+    usersStruct->transform_app[strlen(transform)] = '\0'; // Ensure null-termination
 
-    if (strcmp(transform, "ON") == 0) {
-        usersStruct->isTransformed = 1;
-        snprintf(response, sizeof(response), "+OK Transform function is: %s\r\n", transform);
-    } else if (strcmp(transform, "OFF") == 0){
-        usersStruct->isTransformed = 0;
-        snprintf(response, sizeof(response), "+OK Transform function is: %s\r\n", transform);
-    }else{
-         snprintf(response, sizeof(response), "+OK Transform function is not changed\r\n");
-    }
-
+    snprintf(response, sizeof(response), "+OK Transform command set to: %s\r\n", transform);
     send_response(client->fd, response);
 }
 
