@@ -417,45 +417,8 @@ int process_pop3_command(client_state *client) {
             }
             send_response(client->fd, "+OK See-ya\r\n");
             return -1; // Return -1 to close the connection
-        }
-        // Process other commands only if authenticated
-        else if (client->authenticated) {
-            // Process the LIST command
-            if (strncmp(command, "LIST", 4) == 0) {
-                handle_list_command(client);
-            }
-            // Process the RETR command
-            else if (strncmp(command, "RETR ", 5) == 0) {
-                int mail_number = atoi(command + 5);
-                if (handle_retr_command(client, mail_number) == -1) {
-                    // Handle error (if any)
-                }
-            }
-            // Process the DELE command
-            else if (strncmp(command, "DELE ", 5) == 0) {
-                int mail_number = atoi(command + 5);
-                if (handle_dele_command(client, mail_number) == -1) {
-                    // Handle error (if any)
-                }
-            }
-            else if (strncmp(client->read_buffer, "UIDL", 4) == 0) {
-                char *argument = NULL;
-                if (strlen(client->read_buffer) > 5) {
-                    argument = client->read_buffer + 5;
-                }
-                handle_uidl_command(client, argument);
-            }
-            else if (strncmp(command, "RSET", 4) == 0) {
-                handle_rset_command(client);
-            }
-            else if (strncmp(command, "STAT", 4) == 0) {
-                handle_stat_command(client);
-            }
-            else if (strncmp(command, "CAPA", 4) == 0) {
-                handle_capa_command(client);
-            }
-            else if (is_admin(client->username)) {
-                if (strncmp(command, "ALL_CONNEC", 10) == 0) {
+        } else if(client->authenticated && is_admin(client->username)) {
+            if (strncmp(command, "ALL_CONNEC", 10) == 0) {
                     handle_all_connec_command(client);
                 }
                 else if (strncmp(command, "CURR_CONNEC", 11) == 0) {
@@ -512,15 +475,53 @@ int process_pop3_command(client_state *client) {
                     sscanf(command + 10, "%s", transform);
                     handle_set_transform_command(client, transform);
                 }
+                else if (strncmp(command, "CAPA", 4) == 0) {
+                handle_capa_command(client);
+                }
                 else {
                     send_response(client->fd, "-ERR Unknown admin command\r\n");
                 }
-
-            }else {
+                
+        }else if (client->authenticated) {// Process other commands only if authenticated
+            // Process the LIST command
+            if (strncmp(command, "LIST", 4) == 0) {
+                handle_list_command(client);
+            }
+            // Process the RETR command
+            else if (strncmp(command, "RETR ", 5) == 0) {
+                int mail_number = atoi(command + 5);
+                if (handle_retr_command(client, mail_number) == -1) {
+                    // Handle error (if any)
+                }
+            }
+            // Process the DELE command
+            else if (strncmp(command, "DELE ", 5) == 0) {
+                int mail_number = atoi(command + 5);
+                if (handle_dele_command(client, mail_number) == -1) {
+                    // Handle error (if any)
+                }
+            }
+            else if (strncmp(client->read_buffer, "UIDL", 4) == 0) {
+                char *argument = NULL;
+                if (strlen(client->read_buffer) > 5) {
+                    argument = client->read_buffer + 5;
+                }
+                handle_uidl_command(client, argument);
+            }
+            else if (strncmp(command, "RSET", 4) == 0) {
+                handle_rset_command(client);
+            }
+            else if (strncmp(command, "STAT", 4) == 0) {
+                handle_stat_command(client);
+            }
+            else if (strncmp(command, "CAPA", 4) == 0) {
+                handle_capa_command(client);
+            }
+           else {
                 // Handle unknown commands or insufficient privileges
                 send_response(client->fd, "-ERR Unknown command or insufficient privileges\r\n");
             }
-        } else {
+        }else {
             // Authentication required for other commands
             send_response(client->fd, "-ERR Please authenticate using USER and PASS commands\r\n");
         }

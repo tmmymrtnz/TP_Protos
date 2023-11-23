@@ -78,6 +78,7 @@ void handle_max_users_command(client_state *client, int max_users) {
     } else {
         // Here, set the new max users value
         usersStruct->max_users = max_users;
+        usersStruct->users = realloc(usersStruct->users, sizeof(TUser) * max_users);
         snprintf(response, sizeof(response), "+OK Maximum users set to: %d\r\n", max_users);
     }
     
