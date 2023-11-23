@@ -17,7 +17,7 @@ Para compilar el proyecto y generar los ejecutables, sigue estos pasos:
 $ sudo apt install check  # Instalar dependencias necesarias
 $ make                    # Compilar el proyecto con gcc
 o
-$ make CC=clang           #Compilar con clang
+$ make CC=clang           # Compilar con clang
 ```
 
 ### Ejecutables Generados
@@ -43,4 +43,14 @@ Donde `[opciones]` puede incluir:
 
 Nota: Puede ser necesario ejecutar el servidor con `sudo` para permitir el uso de puertos bien conocidos.
 
+### Usuarios y Credenciales
 
+El servidor incluye usuarios de prueba con las siguientes credenciales:
+
+- **Usuarios:** `user1`, `user2`, `user3`
+- **Contraseñas:** `pass1`, `pass2`, `pass3` (correspondientes a cada usuario)
+
+Las credenciales del administrador son:
+
+- **Usuario:** `default`
+- **Contraseña:** `default`
