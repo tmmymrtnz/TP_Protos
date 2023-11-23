@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 1024*1024*1024
 
 char* remove_end_of_response(const char* email_content) {
     size_t len = strlen(email_content);
