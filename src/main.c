@@ -173,23 +173,30 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
 
-            server_status->total_connections++;
-            server_status->current_connections++;
+            if (server_status->current_connections >= MAX_CLIENTS) {
+                char *message = "-ERR Server is full, try again later.\r\n";
+                send_response(new_socket, message);
+                close(new_socket);
+                log_info("Rejected connection from %s:%d because the server is full", addr_str, ntohs(((struct sockaddr_in *)&address)->sin_port));
+            } else {
+                server_status->total_connections++;
+                server_status->current_connections++;
 
-            inet_ntop(address.ss_family, &((struct sockaddr_in *)&address)->sin_addr, addr_str, sizeof(addr_str));
-            log_new_connection(new_socket, addr_str, ntohs(((struct sockaddr_in *)&address)->sin_port));
+                inet_ntop(address.ss_family, &((struct sockaddr_in *)&address)->sin_addr, addr_str, sizeof(addr_str));
+                log_new_connection(new_socket, addr_str, ntohs(((struct sockaddr_in *)&address)->sin_port));
 
-            printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
+                printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
 
-            for (i = 0; i < MAX_CLIENTS; i++) {
-                if (clients[i].fd == 0) {
-                    clients[i].fd = new_socket;
-                    printf("Adding to list of sockets as %d\n", i);
+                for (i = 0; i < MAX_CLIENTS; i++) {
+                    if (clients[i].fd == 0) {
+                        clients[i].fd = new_socket;
+                        printf("Adding to list of sockets as %d\n", i);
 
-                    // Send welcome message
-                    char *message = "+OK POP3 mail.itba.net v4.20 server ready\r\n";
-                    send_response(clients[i].fd, message);
-                    break;
+                        // Send welcome message
+                        char *message = "+OK POP3 mail.itba.net v4.20 server ready\r\n";
+                        send_response(clients[i].fd, message);
+                        break;
+                    }
                 }
             }
         }
@@ -200,21 +207,30 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
 
-            server_status->total_connections++;
-            server_status->current_connections++;
+            if (server_status->current_connections >= MAX_CLIENTS) {
+                char *message = "-ERR Server is full, try again later.\r\n";
+                send_response(new_socket, message);
+                close(new_socket);
+                log_info("Rejected connection from %s:%d because the server is full", addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
+            } else {
+                server_status->total_connections++;
+                server_status->current_connections++;
 
-            inet_ntop(address.ss_family, &((struct sockaddr_in6 *)&address)->sin6_addr, addr_str, sizeof(addr_str));
-            log_new_connection(new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
+                inet_ntop(address.ss_family, &((struct sockaddr_in6 *)&address)->sin6_addr, addr_str, sizeof(addr_str));
+                log_new_connection(new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
 
-            for (i = 0; i < MAX_CLIENTS; i++) {
-                if (clients[i].fd == 0) {
-                    clients[i].fd = new_socket;
-                    printf("Adding to list of sockets as %d\n", i);
+                printf("New connection, socket fd is %d, ip is: %s, port: %d\n", new_socket, addr_str, ntohs(((struct sockaddr_in6 *)&address)->sin6_port));
 
-                    // Send welcome message
-                    char *message = "+OK POP3 mail.itba.net v4.20 server ready\r\n";
-                    send_response(clients[i].fd, message);
-                    break;
+                for (i = 0; i < MAX_CLIENTS; i++) {
+                    if (clients[i].fd == 0) {
+                        clients[i].fd = new_socket;
+                        printf("Adding to list of sockets as %d\n", i);
+
+                        // Send welcome message
+                        char *message = "+OK POP3 mail.itba.net v4.20 server ready\r\n";
+                        send_response(clients[i].fd, message);
+                        break;
+                    }
                 }
             }
         }

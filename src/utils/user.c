@@ -47,7 +47,7 @@ void initialize_users(void) {
 
 
 int add_user(const char *username, const char* password) {
-    if(usersStruct->count == MAX_CLIENTS)
+    if(usersStruct->count == usersStruct->max_users)
         return 1;
     if(username == NULL || password == NULL)
         return 1;

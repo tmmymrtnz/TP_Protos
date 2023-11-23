@@ -76,6 +76,12 @@ void handle_max_users_command(client_state *client, int max_users) {
         // If new_max_users is -1, it means we just want to retrieve the current setting
         snprintf(response, sizeof(response), "+OK Current maximum users: %d\r\n", usersStruct->max_users);
     } else {
+        if (max_users < usersStruct->count) {
+            snprintf(response, sizeof(response), "-ERR Cannot set maximum users to %d, there are currently %d users connected\r\n",
+                     max_users, usersStruct->count);
+            send_response(client->fd, response);
+            return;
+        }
         // Here, set the new max users value
         usersStruct->max_users = max_users;
         usersStruct->users = realloc(usersStruct->users, sizeof(TUser) * max_users);
