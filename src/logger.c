@@ -12,7 +12,8 @@ static ServerConfig server_config = {
     .ipv4_port = DEFAULT_IPV4_PORT,
     .ipv6_port = DEFAULT_IPV6_PORT,
     .mail_dir = "src/maildir/",
-    .transform_command = "cat"
+    .transform_command = "cat",
+    .transform_enabled = false
 };
 
 ServerConfig *get_server_config(void) {

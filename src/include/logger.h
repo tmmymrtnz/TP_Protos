@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include "pop3_commands.h"
 
 #define DEFAULT_IPV4_PORT 1110
@@ -32,6 +33,7 @@ typedef struct {
     int ipv6_port;
     char *mail_dir;
     char *transform_command;
+    bool transform_enabled;
 } ServerConfig;
 
 // Function to log a message with a specific level

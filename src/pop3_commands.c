@@ -4,6 +4,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <limits.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -18,6 +19,43 @@
 #define BASE_DIR "src/maildir/"
 
 #define MAX_COMMANDS 10
+#define MAX_COMMAND_LENGTH 100
+#define BUFFER_CHUNK_SIZE 4096
+
+char* read_mail_file(const char* file_path) {
+    FILE *file = fopen(file_path, "r");
+    if (!file) {
+        perror("fopen");
+        return NULL;
+    }
+
+    // Seek to the end of the file to determine its size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file); // Go back to the start of the file
+
+    // Allocate memory for the file content
+    char *content = malloc(file_size + 1);
+    if (!content) {
+        perror("malloc");
+        fclose(file);
+        return NULL;
+    }
+
+    // Read the file into memory
+    if (fread(content, 1, file_size, file) != (size_t)file_size) {
+        perror("fread");
+        free(content);
+        fclose(file);
+        return NULL;
+    }
+
+    // Null-terminate the string
+    content[file_size] = '\0';
+
+    fclose(file);
+    return content;
+}
 
 // Helper function to send a response to the client
 void send_response(int client_socket, const char *response) {
@@ -90,8 +128,10 @@ void handle_list_command(client_state *client) {
         return;
     }
 
+    ServerConfig *server_config = get_server_config();
+
     char user_dir[256];
-    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", BASE_DIR, client->username);
+    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", server_config->mail_dir, client->username);
 
     DIR *dir = opendir(user_dir);
     if (!dir) {
@@ -123,54 +163,116 @@ void handle_list_command(client_state *client) {
 
     closedir(dir);
 }
-
-
-int handle_retr_command(client_state* client, int mail_number) {
     
-    //add a check that if the mail number is not a number, return -1
-    if (mail_number == 0) {
-        send_response(client->fd, "-ERR Invalid message number\r\n");
-        return -1;
+void send_with_byte_stuffing(int client_fd, const char *buffer, size_t buffer_size) {
+    char temp_buffer[BUFFER_CHUNK_SIZE * 2];  // Temporary buffer to hold stuffed data
+    size_t temp_index = 0;  // Index for the temporary buffer
+
+    for (size_t i = 0; i < buffer_size; i++) {
+        // Check if a new line starts with a period
+        if (i == 0 || buffer[i - 1] == '\n') {
+            if (buffer[i] == '.') {
+                // Add an extra period
+                temp_buffer[temp_index++] = '.';
+                // Check for buffer overflow
+                if (temp_index == sizeof(temp_buffer)) {
+                    send(client_fd, temp_buffer, temp_index, 0);
+                    temp_index = 0;
+                }
+            }
+        }
+        // Add the current character
+        temp_buffer[temp_index++] = buffer[i];
+        // Check for buffer overflow
+        if (temp_index == sizeof(temp_buffer)) {
+            send(client_fd, temp_buffer, temp_index, 0);
+            temp_index = 0;
+        }
     }
-    
+
+    // Send any remaining data in the buffer
+    if (temp_index > 0) {
+        send(client_fd, temp_buffer, temp_index, 0);
+    }
+}
+
+int handle_retr_command(client_state *client, int mail_number) {
+    log_command_received(client, "RETR", "%d", mail_number);
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return -1;
     }
-    TUsers *usersStruct = getUsersStruct();
 
-    char mail_file[256];
-    snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, mail_number);
+    ServerConfig *server_config = get_server_config();
+    
 
+    char directory_path[256];
+    snprintf(directory_path, sizeof(directory_path), "%s%s/cur/", server_config->mail_dir, client->username);
 
-    char* transformed_content = transform_mail(mail_file, usersStruct->transform_app);
-    if (transformed_content == NULL) {
-        send_response(client->fd, "-ERR Transformation failed\r\n");
+    DIR *dir = opendir(directory_path);
+    if (dir == NULL) {
+        send_response(client->fd, "-ERR Unable to open mail directory\r\n");
         return -1;
     }
 
-    long transformed_size = strlen(transformed_content);
-    send_response(client->fd, "+OK Transformed content follows\r\n");
+    struct dirent *entry;
+    int file_count = 0;
+    char mail_file[512] = {0}; // Increased size for path concatenation
+    char full_path[512] = {0}; // Buffer for full file path
 
-    ssize_t bytes_sent = 0;
-    while (bytes_sent < transformed_size) {
-        ssize_t sent = send(client->fd, transformed_content + bytes_sent, transformed_size - bytes_sent, 0);
-        if (sent == -1) {
-            perror("send"); // Log error details
-            free(transformed_content);
-            send_response(client->fd, "-ERR Failed to send transformed content\r\n");
-            return -1;
-        } else if (sent == 0) {
-            // Handle zero bytes sent
-            break;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue; // Skip '.' and '..' directories
         }
-        bytes_sent += sent;
+
+        snprintf(full_path, sizeof(full_path), "%s%s", directory_path, entry->d_name);
+
+        if (is_regular_file(full_path)) {
+            file_count++;
+            if (file_count == mail_number) {
+                strncpy(mail_file, full_path, sizeof(mail_file));
+                break;
+            }
+        }
+    }
+    closedir(dir);
+
+    if (mail_file[0] == '\0') {
+        send_response(client->fd, "-ERR Mail not found\r\n");
+        return -1;
     }
 
-    free(transformed_content);
+    FILE *file = fopen(mail_file, "r");
+    if (!file) {
+        send_response(client->fd, "-ERR Unable to open mail file\r\n");
+        return -1;
+    }
+
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // Send response with message size
+    char size_response[256];
+    snprintf(size_response, sizeof(size_response), "+OK %ld octets\r\n", file_size);
+    send_response(client->fd, size_response);
+
+    // Send message content with byte-stuffing correction
+    char buffer[1024];
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        send_with_byte_stuffing(client->fd, buffer, bytes_read);
+    }
+
+    // Send the final period to indicate the end of the email content
     send_response(client->fd, "\r\n.\r\n");
+
+    fclose(file);
     return 0;
 }
+
+
 
 int handle_dele_command(client_state *client, int mail_number) {
     if (!client->authenticated) {

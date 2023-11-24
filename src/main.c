@@ -235,36 +235,47 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        for (i = 0; i < MAX_CLIENTS; i++) {
-            if (clients[i].fd > 0 && FD_ISSET(clients[i].fd, &readfds)) {
-                valread = read(clients[i].fd, clients[i].read_buffer + clients[i].read_buffer_pos, sizeof(clients[i].read_buffer) - clients[i].read_buffer_pos);
-                if (valread > 0) {
-                    server_status->bytes_transmitted += valread;
-                    clients[i].read_buffer_pos += valread;
-                    // Check if a command was received and handle it
-                    if (process_pop3_command(&clients[i]) == -1) {
-                        // If process_pop3_command returns -1, it means the client disconnected
-                        log_disconnection(&clients[i]);
-                        close(clients[i].fd);
-                        reset_client_state(&clients[i]);
-                        server_status->current_connections--;
-                    }
-                } else if (valread == 0) {
-                    // Client disconnected
+for (i = 0; i < MAX_CLIENTS; i++) {
+    if (clients[i].fd > 0 && FD_ISSET(clients[i].fd, &readfds)) {
+        valread = read(clients[i].fd, &clients[i].read_buffer[clients[i].read_buffer_pos], 1);
+        if (valread > 0) {
+            server_status->bytes_transmitted += valread;
+            clients[i].read_buffer_pos += valread;
+            // Check for newline to process the command
+            if (clients[i].read_buffer[clients[i].read_buffer_pos - 1] == '\n') {
+                // Process the command when a newline is received
+                clients[i].read_buffer[clients[i].read_buffer_pos] = '\0'; // Null-terminate the command
+                int process_result = process_pop3_command(&clients[i]);
+                printf("Command %d\n",process_result);
+                if (process_result == -1) {
+                    // Disconnect if process_pop3_command returns -1
                     log_disconnection(&clients[i]);
                     close(clients[i].fd);
                     reset_client_state(&clients[i]);
                     server_status->current_connections--;
-                } else {
-                    if (errno != EWOULDBLOCK && errno != EAGAIN) {
-                        log_disconnection(&clients[i]);
-                        close(clients[i].fd);
-                        reset_client_state(&clients[i]);
-                        server_status->current_connections--;
-                    }
+                    continue; // Move to the next client
                 }
+                memset(clients[i].read_buffer, 0, BUFFER_SIZE);
+                clients[i].read_buffer_pos = 0;
+            }
+        } else if (valread == 0 || errno == ECONNRESET) {
+            // Client disconnected or connection reset by peer
+            log_disconnection(&clients[i]);
+            close(clients[i].fd);
+            reset_client_state(&clients[i]);
+            server_status->current_connections--;
+        } else {
+            if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                log_disconnection(&clients[i]);
+                close(clients[i].fd);
+                reset_client_state(&clients[i]);
+                server_status->current_connections--;
             }
         }
+    }
+}
+
+
     }
 
     close(server_fd_ipv4);
