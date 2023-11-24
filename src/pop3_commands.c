@@ -127,6 +127,8 @@ void handle_list_command(client_state *client) {
 
 int handle_retr_command(client_state* client, int mail_number) {
     
+    log_command_received(client, "RETR", "%d", mail_number);
+    
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
         return -1;
@@ -147,15 +149,23 @@ int handle_retr_command(client_state* client, int mail_number) {
         // Calculate the size of transformed content
         long transformed_size = strlen(transformed_content);
 
-       
-        if (send(client->fd, transformed_content, transformed_size, 0) == -1) {
+        // Send the transformed message content
+        send_response(client->fd, "+OK Transformed content follows\r\n");
+
+       ssize_t bytes_sent = 0;
+        while (bytes_sent < transformed_size) {
+            ssize_t sent = send(client->fd, transformed_content + bytes_sent, transformed_size - bytes_sent, 0);
+        if (sent == -1) {
             free(transformed_content);
-            send_response(client->fd, "-ERR Failed to retreive mail\r\n");
+            send_response(client->fd, "-ERR Failed to send transformed content\r\n");
             return -1;
         }
+        bytes_sent += sent;
+        }
+
 
         free(transformed_content);
-    
+
 
     // Send the final period to indicate the end of the email content
     send_response(client->fd, "\r\n.\r\n");

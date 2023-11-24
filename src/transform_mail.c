@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define BUFFER_SIZE 1024*1024*1024
+#define BUFFER_SIZE 1024*1024
 
 char* remove_end_of_response(const char* email_content) {
     size_t len = strlen(email_content);
@@ -67,8 +67,13 @@ char* transform_mail(const char *input_file_path, const char *command) {
         return NULL;
     }
 
-    char full_command[BUFFER_SIZE];
-    snprintf(full_command, sizeof(full_command), "echo \"%s\" | %s", content_without_end, command);
+    char * full_command = malloc(strlen(content_without_end) + strlen(command) + 11);
+    if (!full_command) {
+        perror("malloc");
+        free(content_without_end);
+        return NULL;
+    }
+    snprintf(full_command, strlen(content_without_end) + strlen(command) + 11, "echo \"%s\" | %s", content_without_end, command);
 
     int pipefd[2];
     if (pipe(pipefd) == -1) {
@@ -120,9 +125,9 @@ char* transform_mail(const char *input_file_path, const char *command) {
 
         close(pipefd[0]); // Close the read end of the pipe
         free(content_without_end);
-
+        free(full_command);
+        
         transformed_content[total_bytes] = '\0';
-
         return transformed_content;
     }
 }
