@@ -127,7 +127,11 @@ void handle_list_command(client_state *client) {
 
 int handle_retr_command(client_state* client, int mail_number) {
     
-    log_command_received(client, "RETR", "%d", mail_number);
+    //add a check that if the mail number is not a number, return -1
+    if (mail_number == 0) {
+        send_response(client->fd, "-ERR Invalid message number\r\n");
+        return -1;
+    }
     
     if (!client->authenticated) {
         send_response(client->fd, "-ERR Not logged in\r\n");
@@ -139,35 +143,31 @@ int handle_retr_command(client_state* client, int mail_number) {
     snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, mail_number);
 
 
-        // Transform the email using transform_mail function
-        char* transformed_content = transform_mail(mail_file,usersStruct->transform_app);
-        if (transformed_content == NULL) {
-            send_response(client->fd, "-ERR Transformation failed\r\n");
-            return -1;
-        }
+    char* transformed_content = transform_mail(mail_file, usersStruct->transform_app);
+    if (transformed_content == NULL) {
+        send_response(client->fd, "-ERR Transformation failed\r\n");
+        return -1;
+    }
 
-        // Calculate the size of transformed content
-        long transformed_size = strlen(transformed_content);
+    long transformed_size = strlen(transformed_content);
+    send_response(client->fd, "+OK Transformed content follows\r\n");
 
-        // Send the transformed message content
-        send_response(client->fd, "+OK Transformed content follows\r\n");
-
-       ssize_t bytes_sent = 0;
-        while (bytes_sent < transformed_size) {
-            ssize_t sent = send(client->fd, transformed_content + bytes_sent, transformed_size - bytes_sent, 0);
+    ssize_t bytes_sent = 0;
+    while (bytes_sent < transformed_size) {
+        ssize_t sent = send(client->fd, transformed_content + bytes_sent, transformed_size - bytes_sent, 0);
         if (sent == -1) {
+            perror("send"); // Log error details
             free(transformed_content);
             send_response(client->fd, "-ERR Failed to send transformed content\r\n");
             return -1;
+        } else if (sent == 0) {
+            // Handle zero bytes sent
+            break;
         }
         bytes_sent += sent;
-        }
+    }
 
-
-        free(transformed_content);
-
-
-    // Send the final period to indicate the end of the email content
+    free(transformed_content);
     send_response(client->fd, "\r\n.\r\n");
     return 0;
 }

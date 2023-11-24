@@ -32,117 +32,79 @@ char* remove_end_of_response(const char* email_content) {
 }
 
 char* transform_mail(const char *input_file_path, const char *command) {
-    FILE *file = fopen(input_file_path, "r");
-    if (!file) {
-        perror("fopen");
+    int pipefd_in[2], pipefd_out[2];
+    if (pipe(pipefd_in) == -1 || pipe(pipefd_out) == -1) {
+        perror("pipe");
         return NULL;
     }
 
-    fseek(file, 0, SEEK_END);
-    size_t file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char *file_content = malloc(file_size + 1);
-    if (!file_content) {
-        perror("malloc");
-        fclose(file);
-        return NULL;
-    }
-
-    if (fread(file_content, 1, file_size, file) != file_size) {
-        perror("fread");
-        fclose(file);
-        free(file_content);
-        return NULL;
-    }
-
-    fclose(file);
-    file_content[file_size] = '\0';
-
-    char *content_without_end = remove_end_of_response(file_content);
-    free(file_content);
-
-    if(strcmp(command,"cat")==0){ // If the command is cat, we don't need to fork
-         return content_without_end;
-     }
-
-   if (!content_without_end) {
-    perror("remove_end_of_response");
-    return NULL;
-}
-
-const size_t chunk_size = BUFFER_SIZE - 1;
-
-size_t offset = 0;
-char *transformed_content = NULL;
-
-while (offset < strlen(content_without_end)) {
-    char *chunk = malloc(chunk_size + 1);
-    if (!chunk) {
-        perror("malloc");
-        free(content_without_end);
-        return NULL;
-    }
-
-    // Copy a chunk of the content to process
-    strncpy(chunk, content_without_end + offset, chunk_size);
-    chunk[chunk_size] = '\0';
-
-    // Create a command for the chunk
-    char *chunk_command = malloc(strlen(command) + chunk_size + 11);
-    if (!chunk_command) {
-        perror("malloc");
-        free(content_without_end);
-        free(chunk);
-        return NULL;
-    }
-    snprintf(chunk_command, strlen(command) + chunk_size + 11, "echo \"%s\" | %s", chunk, command);
-
-    // Fork and execute the command
- 
-
-   pid_t pid = fork();
+    pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
-        free(content_without_end);
-        free(chunk);
-        free(chunk_command);
+        close(pipefd_in[0]);
+        close(pipefd_in[1]);
+        close(pipefd_out[0]);
+        close(pipefd_out[1]);
         return NULL;
     }
 
     if (pid == 0) { // Child process
-        char *args[] = { "sh", "-c", chunk_command, NULL };
-        execvp(args[0], args);
+        close(pipefd_in[1]);  // Close the write end of input pipe
+        close(pipefd_out[0]); // Close the read end of output pipe
+
+        // Redirect stdin and stdout
+        dup2(pipefd_in[0], STDIN_FILENO);
+        dup2(pipefd_out[1], STDOUT_FILENO);
+
+        // Execute the command
+        execl("/bin/sh", "sh", "-c", command, NULL);
+        perror("execl");
         exit(EXIT_FAILURE);
-    } else { // Parent process
-        int status;
-        waitpid(pid, &status, 0); // Wait for the child process to finish
+    }
 
-        // Read the output from the executed command (if needed)
-        // Add your code to read the output if required
+    // Parent process
+    close(pipefd_in[0]);  // Close the read end of input pipe
+    close(pipefd_out[1]); // Close the write end of output pipe
 
-        // Append the processed chunk to the transformed content
-        char *temp = realloc(transformed_content, offset + chunk_size + 1);
+    FILE *input_file = fopen(input_file_path, "r");
+    if (!input_file) {
+        perror("fopen");
+        close(pipefd_in[1]);
+        close(pipefd_out[0]);
+        return NULL;
+    }
+
+    char buffer[BUFFER_SIZE];
+    size_t total_bytes = 0;
+    char *transformed_content = NULL;
+
+    // Read from file and write to child's stdin
+    while (fgets(buffer, BUFFER_SIZE, input_file) != NULL) {
+        write(pipefd_in[1], buffer, strlen(buffer));
+    }
+    fclose(input_file);
+    close(pipefd_in[1]); // Close input pipe after writing
+
+    // Read from child's stdout
+    while (1) {
+        ssize_t bytes_read = read(pipefd_out[0], buffer, BUFFER_SIZE - 1);
+        if (bytes_read <= 0) break;
+
+        char *temp = realloc(transformed_content, total_bytes + bytes_read + 1);
         if (!temp) {
             perror("realloc");
-            free(content_without_end);
-            free(chunk);
-            free(chunk_command);
             free(transformed_content);
+            close(pipefd_out[0]);
             return NULL;
         }
         transformed_content = temp;
-        strncpy(transformed_content + offset, chunk, chunk_size);
-        transformed_content[offset + chunk_size] = '\0';
-
-        free(chunk);
-        free(chunk_command);
+        memcpy(transformed_content + total_bytes, buffer, bytes_read);
+        total_bytes += bytes_read;
+        transformed_content[total_bytes] = '\0'; // Null-terminate
     }
 
-    offset += chunk_size;
-}
+    close(pipefd_out[0]); // Close output pipe after reading
+    waitpid(pid, NULL, 0); // Wait for child process to finish
 
-free(content_without_end);
-
-return transformed_content;
+    return transformed_content;
 }
