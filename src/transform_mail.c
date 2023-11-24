@@ -62,72 +62,87 @@ char* transform_mail(const char *input_file_path, const char *command) {
     char *content_without_end = remove_end_of_response(file_content);
     free(file_content);
 
-    if (!content_without_end) {
-        perror("remove_end_of_response");
-        return NULL;
-    }
+    if(strcmp(command,"cat")==0){ // If the command is cat, we don't need to fork
+         return content_without_end;
+     }
 
-    char * full_command = malloc(strlen(content_without_end) + strlen(command) + 11);
-    if (!full_command) {
+   if (!content_without_end) {
+    perror("remove_end_of_response");
+    return NULL;
+}
+
+const size_t chunk_size = BUFFER_SIZE - 1;
+
+size_t offset = 0;
+char *transformed_content = NULL;
+
+while (offset < strlen(content_without_end)) {
+    char *chunk = malloc(chunk_size + 1);
+    if (!chunk) {
         perror("malloc");
         free(content_without_end);
         return NULL;
     }
-    snprintf(full_command, strlen(content_without_end) + strlen(command) + 11, "echo \"%s\" | %s", content_without_end, command);
 
-    int pipefd[2];
-    if (pipe(pipefd) == -1) {
-        perror("pipe");
+    // Copy a chunk of the content to process
+    strncpy(chunk, content_without_end + offset, chunk_size);
+    chunk[chunk_size] = '\0';
+
+    // Create a command for the chunk
+    char *chunk_command = malloc(strlen(command) + chunk_size + 11);
+    if (!chunk_command) {
+        perror("malloc");
         free(content_without_end);
+        free(chunk);
         return NULL;
     }
+    snprintf(chunk_command, strlen(command) + chunk_size + 11, "echo \"%s\" | %s", chunk, command);
 
-    pid_t pid = fork();
+    // Fork and execute the command
+ 
+
+   pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
         free(content_without_end);
+        free(chunk);
+        free(chunk_command);
         return NULL;
     }
 
     if (pid == 0) { // Child process
-        close(pipefd[0]); // Close the read end of the pipe
-        if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
-            perror("dup2");
-            exit(EXIT_FAILURE);
-        }
-        close(pipefd[1]); // Close the write end of the pipe
-
-        execl("/bin/sh", "sh", "-c", full_command, NULL);
-        perror("execl");
+        char *args[] = { "sh", "-c", chunk_command, NULL };
+        execvp(args[0], args);
         exit(EXIT_FAILURE);
     } else { // Parent process
-        close(pipefd[1]); // Close the write end of the pipe
+        int status;
+        waitpid(pid, &status, 0); // Wait for the child process to finish
 
-        char *transformed_content = NULL;
-        size_t total_bytes = 0;
-        size_t buffer_size = BUFFER_SIZE;
+        // Read the output from the executed command (if needed)
+        // Add your code to read the output if required
 
-        while (1) {
-            transformed_content = realloc(transformed_content, total_bytes + buffer_size + 1);
-            if (!transformed_content) {
-                perror("realloc");
-                close(pipefd[0]);
-                free(content_without_end);
-                return NULL;
-            }
-
-            ssize_t bytes_read = read(pipefd[0], transformed_content + total_bytes, buffer_size);
-            if (bytes_read <= 0) {
-                break;
-            }
-            total_bytes += bytes_read;
+        // Append the processed chunk to the transformed content
+        char *temp = realloc(transformed_content, offset + chunk_size + 1);
+        if (!temp) {
+            perror("realloc");
+            free(content_without_end);
+            free(chunk);
+            free(chunk_command);
+            free(transformed_content);
+            return NULL;
         }
+        transformed_content = temp;
+        strncpy(transformed_content + offset, chunk, chunk_size);
+        transformed_content[offset + chunk_size] = '\0';
 
-        close(pipefd[0]); // Close the read end of the pipe
-        free(content_without_end);
-        free(full_command);
-        
-        transformed_content[total_bytes] = '\0';
-        return transformed_content;
+        free(chunk);
+        free(chunk_command);
     }
+
+    offset += chunk_size;
+}
+
+free(content_without_end);
+
+return transformed_content;
 }
