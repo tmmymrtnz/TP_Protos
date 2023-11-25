@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
             }
 
             // TODO: Implement the function to authenticate
-            int auth_result = is_admin(buffer); // Replace with actual function
+            int auth_result = is_client_admin(buffer); // Replace with actual function
             send_response(new_socket, auth_result == 0 ? "+OK\r\n" : "-ERR\r\n");
 
             if (auth_result == 0) {

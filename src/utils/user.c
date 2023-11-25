@@ -176,6 +176,16 @@ int is_admin(const char *username) {
     return usersStruct->users[userIndex].isAdmin;
 }
 
+int is_client_admin(const char * password) {
+    int i;
+    if( (i = find_user("default")) == -1)
+        return 0;
+    if(strcmp(usersStruct->users[i].password, password) == 0)
+        return 1;
+    else
+        return 0;
+}
+
 void freeUsers(void) {
     free(usersStruct->users);
     free(usersStruct);

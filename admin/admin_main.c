@@ -117,21 +117,19 @@ int handle_commands(int argc, char *argv[], int sock) {
                             k++;
                         }
 
-                        // Check if the number of parameters matches the required count
-                        if (parameterCount == 1 && (commandFlag == 'A' || commandFlag == 'C') ) {
+                        // Special handling for commands with two parameters
+                        if ((commandFlag == 'A' || commandFlag == 'C') && parameterCount >= 2) {
                             snprintf(command, MAX_COMMAND_SIZE, "%s %s %s\n", commandMappings[j].command, argv[i + 1], argv[i + 2]);
                             i += 2; // Increment i to skip processed parameters
-                        } else if (parameterCount > 0 && parameterCount <= 2) { // Update the range as needed for other commands
+                        } else if (commandFlag == 'm' && parameterCount <= 1) {
+                            // Special handling for 'max users' command
                             snprintf(command, MAX_COMMAND_SIZE, "%s", commandMappings[j].command);
-
-                            // Append the required parameters
-                            for (int p = 0; p < parameterCount; p++) {
+                            if (parameterCount == 1) {
                                 strncat(command, " ", MAX_COMMAND_SIZE - strlen(command) - 1);
-                                strncat(command, argv[i + 1 + p], MAX_COMMAND_SIZE - strlen(command) - 1);
+                                strncat(command, argv[i + 1], MAX_COMMAND_SIZE - strlen(command) - 1);
+                                i++; // Increment i to skip the processed parameter
                             }
-
                             strncat(command, "\n", MAX_COMMAND_SIZE - strlen(command) - 1);
-                            i += parameterCount; // Increment i to skip processed parameters
                         } else {
                             printf("Invalid number of parameters for -%c command\n", commandFlag);
                             return -1;
@@ -170,6 +168,7 @@ int handle_commands(int argc, char *argv[], int sock) {
 
     return 0;
 }
+
 
 
 void print_server_response(int sock) {

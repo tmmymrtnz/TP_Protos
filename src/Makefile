@@ -1,6 +1,6 @@
 # src/Makefile
 
-CC := gcc
+CC ?= gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -MMD -fsanitize=address -Iinclude
 LDFLAGS := -lpthread -fsanitize=address
 SRC_DIR := .

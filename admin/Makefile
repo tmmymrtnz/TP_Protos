@@ -1,4 +1,4 @@
-CC := gcc
+CC ?= gcc
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c11 -MMD -fsanitize=address -I../src/include
 LDFLAGS := -fsanitize=address
 SRC_DIR := .

@@ -56,5 +56,7 @@ int reset_user_connection(const char *username);
 
 int is_admin(const char *username);
 
+int is_client_admin(const char * password);
+
 //Libera toda la memoria utilizada por las estructuras de usuarios.
 void freeUsers(void);

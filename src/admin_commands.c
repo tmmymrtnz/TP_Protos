@@ -49,6 +49,7 @@ void handle_users_command(int socket_fd) {
 
     strncat(response, ".\r\n", sizeof(response) - strlen(response) - 1);
     send_response(socket_fd, response);
+    log_info("Admin command executed by %s: List Users", "default");
 }
 
 void handle_status_command(int socket_fd) {
@@ -96,60 +97,74 @@ void handle_max_users_command(int socket_fd, int max_users) {
 void handle_delete_user_command(int socket_fd, const char *username) {
     if (delete_user(username) == 0) {
         send_response(socket_fd, "DELETE_USER -> +OK");
+        log_info("Admin command executed by %s: User %s deleted", "default", username);
     } else {
         send_response(socket_fd, "-ERR Failed to delete user.\r\n");
+        log_info("Admin command executed by %s: Failed to delete user %s", "default", username);
     }
 }
 
 void handle_add_user_command(int socket_fd, const char *username, const char *password) {
     if (add_user(username, password) == 0) {
         send_response(socket_fd, "ADD_USER -> +OK\r\n");
+        log_info("Admin command executed by %s: User %s added", "default", username);
     } else {
         send_response(socket_fd, "-ERR Failed to add user.\r\n");
+        log_info("Admin command executed by %s: Failed to add user %s", "default", username);
     }
 }
 
 void handle_reset_user_password_command(int socket_fd, const char *username) {
     if (reset_user_password(username) == 0) {
         send_response(socket_fd, "RESET_USER_PASSWORD -> +OK\r\n");
+        log_info("Admin command executed by %s: Password reset for user %s", "default", username);
     } else {
         send_response(socket_fd, "-ERR\r\n");
+        log_info("Admin command executed by %s: Failed to reset password for user %s", "default", username);
     }
 }
 
 void handle_change_password_command(int socket_fd, const char *old_password, const char *new_password) {
     if (change_password("default", old_password, new_password) == 0) {
         send_response(socket_fd, "CHANGE_PASSWORD -> +OK\r\n");
+        log_info("Admin command executed by %s: Password changed", "default");
     } else {
         send_response(socket_fd, "-ERR Failed to change password.\r\n");
+        log_info("Admin command executed by %s: Failed to change password", "default");
     }
 }
 
 void handle_help_command(int socket_fd) {
-    char response[BUFFER_SIZE]; // Make sure BUFFER_SIZE is sufficiently large
+    char response[BUFFER_SIZE]; // Ensure BUFFER_SIZE is sufficiently large
 
     snprintf(response, sizeof(response),
              "HELP -> +OK\r\n"
              "Usage: ./bin/popadmin [OPTION]...\r\n\r\n"
-             "   -h               Help.\r\n"
-             "   -v               Print version information.\r\n"
-             "   -A <name> <pass> Add a user to the server.\r\n"
-             "   -m               Get the maximum number of available mails.\r\n"
-             "   -M <max>         Modify the maximum number of available mails.\r\n"
-             "   -d               Get the path to the mail directory.\r\n"
-             "   -D <path>        Modify the path to the mail directory.\r\n"
-             "   -p               Get the number of previous connections.\r\n"
-             "   -c               Get the current number of connections.\r\n"
-             "   -b               Get the number of bytes transferred.\r\n"
+             "   -h                                 Help.\r\n"
+             "   -A <username> <password>          Add a user to the server. Requires username and password.\r\n"
+             "   -D <username>                     Delete a user from the server. Requires username.\r\n"
+             "   -R <username>                     Reset a user's password. Requires username.\r\n"
+             "   -C <old_password> <new_password>  Change password. Requires old and new passwords.\r\n"
+             "   -m <optional: max_users>          Set/Get the maximum number of users. Optionally requires max users count.\r\n"
+             "   -d                                Get the path to the mail directory.\r\n"
+             "   -M <path>                         Set the mail directory path. Requires maildir path.\r\n"
+             "   -a                                Get the total number of connections.\r\n"
+             "   -c                                Get the current number of connections.\r\n"
+             "   -b                                Get the number of bytes transferred.\r\n"
+             "   -s                                Get the server status.\r\n"
+             "   -u                                List all users.\r\n"
+             // Add other command descriptions as needed
              ".\r\n"); // Ensure to end with the termination sequence
     send_response(socket_fd, response);
 }
+
 
 void handle_get_maildir_command(int socket_fd) {
     char response[BUFFER_SIZE];
     ServerConfig *server_config = get_server_config();
     snprintf(response, sizeof(response), "GET_MAILDIR -> +OK\r\n- %s\r\n", server_config->mail_dir);
     send_response(socket_fd, response);
+    log_info("Admin command executed by %s: Get Mail Directory", "default");
 }
 
 void handle_set_maildir_command(int socket_fd, char *maildir) {
@@ -177,10 +192,8 @@ void handle_set_maildir_command(int socket_fd, char *maildir) {
     char response[BUFFER_SIZE];
     snprintf(response, sizeof(response), "SET_MAILDIR -> +OK\r\n- %s\r\n", server_config->mail_dir);
     send_response(socket_fd, response);
+    log_info("Admin command executed by %s: Set Mail Directory to %s", "default", server_config->mail_dir);
 }
-
-
-
 
 int process_admin_command(char * buffer, int socket_fd) {
     char *command = strtok(buffer, "\r\n");
