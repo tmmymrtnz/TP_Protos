@@ -135,7 +135,7 @@ void handle_change_password_command(int socket_fd, const char *old_password, con
 }
 
 void handle_help_command(int socket_fd) {
-    char response[BUFFER_SIZE]; // Ensure BUFFER_SIZE is sufficiently large
+    char response[1070]; // Ensure BUFFER_SIZE is sufficiently large
 
     snprintf(response, sizeof(response),
              "HELP -> +OK\r\n"

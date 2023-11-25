@@ -179,11 +179,12 @@ int is_admin(const char *username) {
 int is_client_admin(const char * password) {
     int i;
     if( (i = find_user("default")) == -1)
-        return 0;
-    if(strcmp(usersStruct->users[i].password, password) == 0)
         return 1;
-    else
+    if(strcmp(usersStruct->users[i].password, password) == 0){
         return 0;
+    }else{
+        return 1;
+    }
 }
 
 void freeUsers(void) {

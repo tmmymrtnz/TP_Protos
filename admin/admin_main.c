@@ -67,7 +67,7 @@ void admin_command_handler(const char *password, int argc, char *argv[]) {
 
  // Create a buffer for the complete command string
     char password_buffer[MAX_COMMAND_SIZE];
-    snprintf(password_buffer, MAX_COMMAND_SIZE, "%s\n", password);
+    snprintf(password_buffer, MAX_COMMAND_SIZE, "%s", password);
     if (send(sock, password_buffer, strlen(password_buffer), 0) < 0) {
         perror("Send failed");
         close(sock);
@@ -149,7 +149,7 @@ int handle_commands(int argc, char *argv[], int sock) {
                         perror("recv failed");
                         return -1;
                     } else {
-                        printf("Server reply: %s\n", server_reply);
+                        printf("%s\n", server_reply);
                         // Clear the buffer
                         memset(server_reply, 0, sizeof(server_reply));
                     }
@@ -176,6 +176,6 @@ void print_server_response(int sock) {
     if (recv(sock, server_reply, 2000, 0) < 0) {
         perror("recv failed");
     } else {
-        printf("Server reply: %s\n", server_reply);
+        printf("PASS AUTH: %s\n", server_reply);
     }
 }
