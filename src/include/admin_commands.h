@@ -13,7 +13,6 @@ void handle_bytes_trans_command(int socket_fd);
 void handle_users_command(int socket_fd);
 void handle_status_command(int socket_fd);
 void handle_max_users_command(int socket_fd, int max_users);
-void handle_set_transform_command(int socket_fd, char *transform);
 void handle_delete_user_command(int socket_fd, const char *username);
 void handle_add_user_command(int socket_fd, const char *username, const char *password);
 void handle_reset_user_password_command(int socket_fd, const char *username);

@@ -93,19 +93,6 @@ void handle_max_users_command(int socket_fd, int max_users) {
 }
 
 
-void handle_set_transform_command(int socket_fd, char *transform) {
-    char response[BUFFER_SIZE];
-    TUsers *usersStruct = getUsersStruct();
-    
-   
-    strncpy(usersStruct->transform_app, transform, strlen(transform) + 1);
-    usersStruct->transform_app[strlen(transform)] = '\0'; // Ensure null-termination
-
-    snprintf(response, sizeof(response), "SET_TRANSFORM -> +OK\r\n- %s\r\n", transform);
-    send_response(socket_fd, response);
-}
-
-
 void handle_delete_user_command(int socket_fd, const char *username) {
     if (delete_user(username) == 0) {
         send_response(socket_fd, "DELETE_USER -> +OK");

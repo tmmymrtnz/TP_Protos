@@ -19,7 +19,6 @@ typedef struct {
     TUser * users;
     int count;
     int max_users;
-    char transform_app[BUFFER_SIZE];
 } TUsers;
 
 TUsers *getUsersStruct(void);

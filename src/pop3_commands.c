@@ -16,7 +16,6 @@
 #include "include/logger.h"
 #include "include/transform_mail.h"
 
-#define BASE_DIR "src/maildir/"
 
 #define MAX_COMMANDS 10
 #define MAX_COMMAND_LENGTH 100
@@ -308,8 +307,10 @@ int handle_dele_command(client_state *client, int mail_number) {
         return -1;
     }
 
+    ServerConfig *server_config = get_server_config();
+
     char directory_path[256];
-    snprintf(directory_path, sizeof(directory_path), "%s%s/cur/", BASE_DIR, client->username);
+    snprintf(directory_path, sizeof(directory_path), "%s%s/cur/", server_config->mail_dir, client->username);
 
     DIR *dir = opendir(directory_path);
     if (dir == NULL) {
@@ -460,8 +461,10 @@ void handle_uidl_command(client_state *client, char *argument) {
         return;
     }
 
+    ServerConfig *server_config = get_server_config();
+
     char user_dir[256];
-    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", BASE_DIR, client->username);
+    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", server_config->mail_dir, client->username);
 
     DIR *dir = opendir(user_dir);
     if (!dir) {

@@ -99,8 +99,6 @@ void parse_options(int argc, char *argv[], ServerConfig *config) {
         } else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
             free(config->mail_dir); // Free existing mail_dir
             config->mail_dir = my_strdup(argv[++i]);
-        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-            config->transform_command = my_strdup(argv[++i]);
         } else if (strcmp(argv[i], "-u") == 0 && i + 1 < argc) {
             add_user_from_string(argv[++i]);
         } else {
@@ -198,7 +196,6 @@ int main(int argc, char *argv[]) {
     log_info("IPv4 & IPv6  port: %d", server_config->ipv4_port);
     log_info("Client admin port: %d", server_config->client_port);
     log_info("Mail directory: %s", server_config->mail_dir);
-    log_info("Transform command: %s", server_config->transform_command);
 
     puts("Waiting for connections ...");
 

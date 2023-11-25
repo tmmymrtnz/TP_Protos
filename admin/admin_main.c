@@ -32,7 +32,6 @@ const CommandMapping commandMappings[] = {
     {'m', "MAX_USERS", true}, // Requires max users count or none
     {'d', "GET_MAILDIR", false},
     {'M', "SET_MAILDIR", true}, // Requires maildir path
-    {'t', "TRANSFORM", true}, // Requires transform command
     {'a', "ALL_CONNEC", false},
     {'c', "CURR_CONNEC", false},
     {'b', "BYTES_TRANS", false},

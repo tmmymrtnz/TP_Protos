@@ -12,7 +12,7 @@ TUsers *getUsersStruct(void) {
 
 void initialize_users(void) {
     usersStruct = malloc(sizeof(TUsers));
-    ServerConfig *server_config = get_server_config();
+
     if (usersStruct == NULL) {
         perror("Error: could not allocate users structure");
         exit(1);
@@ -27,10 +27,6 @@ void initialize_users(void) {
 
     usersStruct->count = 0;
     usersStruct->max_users = MAX_CLIENTS;
-
-    strncpy(usersStruct->transform_app, server_config->transform_command, 60);
-    usersStruct->transform_app[60] = '\0'; // Ensure null-termination
-
 
     // Directly add the default user
     strncpy(usersStruct->users[0].username, "default", sizeof(usersStruct->users[0].username));
