@@ -21,6 +21,7 @@
 #define MAX_COMMANDS 10
 #define MAX_COMMAND_LENGTH 100
 #define BUFFER_CHUNK_SIZE 4096
+#define RESPONSE_SIZE 8192*3 
 
 char* read_mail_file(const char* file_path) {
     FILE *file = fopen(file_path, "r");
@@ -142,7 +143,8 @@ void handle_list_command(client_state *client) {
     struct dirent *entry;
     char response[512];
     int count = 0;
-    char list_response[4096] = "+OK Mailbox scan listing follows\r\n";
+    char *list_response = NULL;
+    size_t list_size = 0;
 
     while ((entry = readdir(dir))) {
         char full_path[512];
@@ -153,14 +155,35 @@ void handle_list_command(client_state *client) {
             if (stat(full_path, &file_stat) == 0) {
                 count++;
                 snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
-                strncat(list_response, response, sizeof(list_response) - strlen(list_response) - 1);
+
+                // Resize the list_response buffer to append the new entry
+                size_t response_len = strlen(response);
+                list_response = realloc(list_response, list_size + response_len + 1);
+                if (!list_response) {
+                    send_response(client->fd, "-ERR Memory allocation failed\r\n");
+                    closedir(dir);
+                    return;
+                }
+
+                strcpy(list_response + list_size, response);
+                list_size += response_len;
             }
         }
     }
 
-    send(client->fd, list_response, strlen(list_response), 0);
-    send(client->fd, ".\r\n", 3, 0);
+    char end_marker[] = ".\r\n";
+    list_response = realloc(list_response, list_size + sizeof(end_marker));
+    if (!list_response) {
+        send_response(client->fd, "-ERR Memory allocation failed\r\n");
+        closedir(dir);
+        return;
+    }
+    strcpy(list_response + list_size, end_marker);
 
+    send(client->fd, "+OK Mailbox scan listing follows\r\n", 33, 0);
+    send(client->fd, list_response, list_size + sizeof(end_marker) - 1, 0);
+
+    free(list_response);
     closedir(dir);
 }
     
