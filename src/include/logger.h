@@ -8,11 +8,11 @@
 #include "pop3_commands.h"
 
 #define DEFAULT_IPV4_PORT 1110
-#define DEFAULT_IPV6_PORT 9090
+#define DEFAULT_CLIENT_PORT 9090
 #define MAX_CLIENTS 1000
 #define BUFFER_SIZE 1024
 
-// Log levels
+// Log levels   
 typedef enum {
     LOG_DEBUG,
     LOG_INFO,
@@ -30,7 +30,7 @@ typedef struct {
     char *user;
     char *pass;
     int ipv4_port;
-    int ipv6_port;
+    int client_port;
     char *mail_dir;
     char *transform_command;
     bool transform_enabled;

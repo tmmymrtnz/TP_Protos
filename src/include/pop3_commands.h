@@ -18,7 +18,8 @@ typedef struct {
     int write_buffer_pos;         // Position in the write buffer
     bool authenticated;           // Flag indicating if the user is authenticated
     char username[USERNAME_SIZE];           // The authenticated user's username
-    bool deleted_messages[MAX_MESSAGES];      // Array of flags indicating if a mail has been deleted
+    char deleted_files[10][MAX_MESSAGES];
+    int delete_size;      // Array of flags indicating if a mail has been deleted
     // ... other fields for state management
 } client_state;
 

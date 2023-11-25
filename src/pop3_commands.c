@@ -71,14 +71,19 @@ void send_response(int client_socket, const char *response) {
 }
 
 void cleanup_deleted_messages(client_state *client) {
-    for (int i = 0; i < MAX_MESSAGES; ++i) {
-        if (client->deleted_messages[i]) {
-            char mail_file[256];
-            snprintf(mail_file, sizeof(mail_file), "%s%s/cur/mail%d.eml", BASE_DIR, client->username, i + 1);
-            remove(mail_file);
-        }
+    ServerConfig *server_config = get_server_config();
+    char directory_path[256];
+    snprintf(directory_path, sizeof(directory_path), "%s%s/cur/", server_config->mail_dir, client->username);
+
+    for (int i = 0; i < client->delete_size; ++i) {
+        char file_path[512];
+        snprintf(file_path, sizeof(file_path), "%s%s", directory_path, client->deleted_files[i]);
+        remove(file_path);
     }
+    // Reset the delete_size after cleaning up
+    client->delete_size = 0;
 }
+
 
 int is_regular_file(const char *path) {
     struct stat path_stat;
@@ -154,7 +159,7 @@ void handle_list_command(client_state *client) {
             struct stat file_stat;
             if (stat(full_path, &file_stat) == 0) {
                 count++;
-                snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
+                snprintf(response, sizeof(response), "%d %lld\r\n", count, file_stat.st_size);
 
                 // Resize the list_response buffer to append the new entry
                 size_t response_len = strlen(response);
@@ -303,16 +308,45 @@ int handle_dele_command(client_state *client, int mail_number) {
         return -1;
     }
 
-    // Check if mail_number is within the valid range
-    if (mail_number <= 0 || mail_number > MAX_MESSAGES) {
-        send_response(client->fd, "-ERR Invalid message number\r\n");
+    char directory_path[256];
+    snprintf(directory_path, sizeof(directory_path), "%s%s/cur/", BASE_DIR, client->username);
+
+    DIR *dir = opendir(directory_path);
+    if (dir == NULL) {
+        send_response(client->fd, "-ERR Unable to open mail directory\r\n");
         return -1;
     }
 
-    // Mark the message as deleted
-    client->deleted_messages[mail_number - 1] = true;
-    send_response(client->fd, "+OK Message marked for deletion\r\n");
-    return 0;
+    struct dirent *entry;
+    int file_count = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        file_count++;
+        if (file_count == mail_number) {
+            // Check if already marked for deletion
+            for (int i = 0; i < client->delete_size; ++i) {
+                if (strcmp(client->deleted_files[i], entry->d_name) == 0) {
+                    closedir(dir);
+                    send_response(client->fd, "-ERR Message already marked for deletion\r\n");
+                    return -1;
+                }
+            }
+
+            // Mark for deletion
+            strncpy(client->deleted_files[client->delete_size], entry->d_name, MAX_MESSAGES);
+            client->delete_size++;
+            closedir(dir);
+            send_response(client->fd, "+OK Message marked for deletion\r\n");
+            return 0;
+        }
+    }
+
+    closedir(dir);
+    send_response(client->fd, "-ERR Message not found\r\n");
+    return -1;
 }
 
 void handle_rset_command(client_state *client) {
@@ -322,13 +356,13 @@ void handle_rset_command(client_state *client) {
         return;
     }
 
-    // Reset all deletion marks
-    for (int i = 0; i < MAX_MESSAGES; ++i) {
-        client->deleted_messages[i] = false;
-    }
+    // Reset all deletion marks and delete_size
+    memset(client->deleted_files, 0, sizeof(client->deleted_files));
+    client->delete_size = 0;
 
     send_response(client->fd, "+OK Reset state\r\n");
 }
+
 
 void handle_stat_command(client_state *client) {
     if (!client->authenticated) {
@@ -337,7 +371,8 @@ void handle_stat_command(client_state *client) {
     }
 
     char user_dir[256];
-    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", BASE_DIR, client->username);
+    ServerConfig *server_config = get_server_config();
+    snprintf(user_dir, sizeof(user_dir), "%s%s/cur", server_config->mail_dir, client->username);
 
     DIR *dir = opendir(user_dir);
     if (!dir) {
@@ -348,16 +383,26 @@ void handle_stat_command(client_state *client) {
     struct dirent *entry;
     int count = 0;
     long total_size = 0;
-    int mail_index = 0;  // Used to keep track of the mail number
 
     while ((entry = readdir(dir))) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
         char full_path[512];
         snprintf(full_path, sizeof(full_path), "%s/%s", user_dir, entry->d_name);
-        if (is_regular_file(full_path)) {
-            mail_index++;
 
-            // Skip this message if it's marked for deletion
-            if (client->deleted_messages[mail_index - 1]) {
+        if (is_regular_file(full_path)) {
+            // Check if the file is marked for deletion
+            bool is_deleted = false;
+            for (int i = 0; i < client->delete_size; ++i) {
+                if (strcmp(client->deleted_files[i], entry->d_name) == 0) {
+                    is_deleted = true;
+                    break;
+                }
+            }
+
+            if (is_deleted) {
                 continue;
             }
 
@@ -375,6 +420,7 @@ void handle_stat_command(client_state *client) {
 
     closedir(dir);
 }
+
 
 void handle_capa_command(client_state *client) {
     if (is_admin(client->username)) {
@@ -552,72 +598,8 @@ int process_pop3_command(client_state *client) {
             }
             send_response(client->fd, "+OK See-ya\r\n");
             return -1; // Return -1 to close the connection
-        } else if(client->authenticated && is_admin(client->username)) {
-            if (strncmp(command, "ALL_CONNEC", 10) == 0) {
-                    handle_all_connec_command(client);
-                }
-                else if (strncmp(command, "CURR_CONNEC", 11) == 0) {
-                    handle_curr_connec_command(client);
-                }
-                else if (strncmp(command, "BYTES_TRANS", 11) == 0) {
-                    handle_bytes_trans_command(client);
-                }
-                else if (strncmp(command, "USERS", 5) == 0) {
-                    handle_users_command(client);
-                }
-                else if (strncmp(command, "STATUS", 6) == 0) {
-                    handle_status_command(client);
-                }
-                else if (strncmp(command, "MAX_USERS", 9) == 0) {
-                    int new_max_users = -1; // Default to an invalid value
-
-                    // Check if there is a space after "MAX_USERS"
-                    if (client->read_buffer[9] == ' ') {
-                        // Extract the integer value if present
-                        if (sscanf(command + 10, "%d", &new_max_users) < 1) {
-                            send_response(client->fd, "-ERR Invalid argument for MAX_USERS command\r\n");
-                            log_error("Invalid argument for MAX_USERS command: %s", command);
-                            reset_read_buffer(client);
-                            return 0; // Return 0 to keep the connection open
-                        }
-                    }
-                    
-                    // Call the handler with the new max users value or -1 if not provided
-                    handle_max_users_command(client, new_max_users);
-                }
-                else if (strncmp(command, "DELETE_USER ", 12) == 0) {
-                    char username[USERNAME_MAX_LENGTH];
-                    sscanf(command + 12, "%s", username);
-                    handle_delete_user_command(client, username);
-                }
-                else if (strncmp(command, "ADD_USER ", 9) == 0) {
-                    char username[USERNAME_MAX_LENGTH], password[PASSWORD_MAX_LENGTH];
-                    sscanf(command + 9, "%s %s", username, password);
-                    handle_add_user_command(client, username, password);
-                }
-                else if (strncmp(command, "RESET_USER_PASSWORD ", 20) == 0) {
-                    char username[USERNAME_MAX_LENGTH];
-                    sscanf(command + 20, "%s", username);
-                    handle_reset_user_password_command(client, username);
-                }
-                else if (strncmp(command, "CHANGE_PASSWORD ", 16) == 0) {
-                    char old_password[USERNAME_MAX_LENGTH], new_password[PASSWORD_MAX_LENGTH];
-                    sscanf(command + 16, "%s %s", old_password, new_password);
-                    handle_change_password_command(client, old_password, new_password);
-                }
-                else if (strncmp(command, "TRANSFORM ", 10) == 0) {
-                    char transform[10];
-                    sscanf(command + 10, "%s", transform);
-                    handle_set_transform_command(client, transform);
-                }
-                else if (strncmp(command, "CAPA", 4) == 0) {
-                handle_capa_command(client);
-                }
-                else {
-                    send_response(client->fd, "-ERR Unknown admin command\r\n");
-                }
-                
-        }else if (client->authenticated) {// Process other commands only if authenticated
+        } 
+            else if (client->authenticated) {// Process other commands only if authenticated
             // Process the LIST command
             if (strncmp(command, "LIST", 4) == 0) {
                 handle_list_command(client);
@@ -667,3 +649,19 @@ int process_pop3_command(client_state *client) {
 
     return 0; // Keep the connection open unless QUIT was received
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

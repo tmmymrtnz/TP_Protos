@@ -10,8 +10,8 @@ static ServerStatus server_status = {
 
 static ServerConfig server_config = {
     .ipv4_port = DEFAULT_IPV4_PORT,
-    .ipv6_port = DEFAULT_IPV6_PORT,
-    .mail_dir = "src/maildir/",
+    .client_port = DEFAULT_CLIENT_PORT,
+    .mail_dir = NULL,
     .transform_command = "cat",
     .transform_enabled = false
 };
