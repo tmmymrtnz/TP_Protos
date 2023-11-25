@@ -159,7 +159,7 @@ void handle_list_command(client_state *client) {
             struct stat file_stat;
             if (stat(full_path, &file_stat) == 0) {
                 count++;
-                snprintf(response, sizeof(response), "%d %lld\r\n", count, file_stat.st_size);
+                snprintf(response, sizeof(response), "%d %ld\r\n", count, file_stat.st_size);
 
                 // Resize the list_response buffer to append the new entry
                 size_t response_len = strlen(response);
@@ -185,7 +185,7 @@ void handle_list_command(client_state *client) {
     }
     strcpy(list_response + list_size, end_marker);
 
-    send(client->fd, "+OK Mailbox scan listing follows\r\n", 33, 0);
+    send(client->fd, "+OK Mailbox scan listing follows\r\n", 35, 0);
     send(client->fd, list_response, list_size + sizeof(end_marker) - 1, 0);
 
     free(list_response);

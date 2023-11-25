@@ -9,7 +9,6 @@
 
 #define MAX_COMMAND_SIZE 1024
 #define SERVER_IP "127.0.0.1" // Replace with your server's IP
-#define SERVER_PORT 9090     // Replace with your server's port
 
 // Function prototypes
 int send_command_to_server(const char * password, const char *command);
@@ -55,7 +54,7 @@ void admin_command_handler(const char *password, int argc, char *argv[]) {
 
     server.sin6_family = AF_INET6;
     server.sin6_addr = in6addr_loopback;
-    server.sin6_port = htons(SERVER_PORT);
+    server.sin6_port = htons(atoi(argv[2]));
 
     // Connect to the server
     if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
@@ -64,7 +63,7 @@ void admin_command_handler(const char *password, int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Connected to server at %s:%d\n", SERVER_IP, SERVER_PORT);
+    printf("Connected to server at %s:%d\n", SERVER_IP, atoi(argv[2]));
     printf("Sending password: %s...\n", password);
 
  // Create a buffer for the complete command string
@@ -88,8 +87,8 @@ void admin_command_handler(const char *password, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        printf("Usage: ./admin <password> -<command> [<param>] ...\n");
+    if (argc < 4) {
+        printf("Usage: ./admin <password> <port> -<command> [<param>] ...\n");
         exit(1);
     }
     admin_command_handler(argv[1], argc, argv);
@@ -99,7 +98,7 @@ int main(int argc, char *argv[]) {
 int handle_commands(int argc, char *argv[], int sock) {
     char server_reply[2000];
 
-    for (int i = 2; i < argc; i++) {
+    for (int i = 3; i < argc; i++) {
         if (argv[i][0] == '-') {
             char commandFlag = argv[i][1];
             bool commandFound = false;
@@ -110,11 +109,32 @@ int handle_commands(int argc, char *argv[], int sock) {
 
                     // Construct the command
                     if (commandMappings[j].requiresParameter) {
-                        if (i + 1 < argc) {
-                            snprintf(command, MAX_COMMAND_SIZE, "%s %s\n", commandMappings[j].command, argv[i + 1]);
-                            i++;
+                        int parameterCount = 0;
+                        int k = i + 1; // Index to check the next arguments
+
+                        // Count the number of parameters required for this command
+                        while (k < argc && argv[k][0] != '-') {
+                            parameterCount++;
+                            k++;
+                        }
+
+                        // Check if the number of parameters matches the required count
+                        if (parameterCount == 1 && (commandFlag == 'A' || commandFlag == 'C') ) {
+                            snprintf(command, MAX_COMMAND_SIZE, "%s %s %s\n", commandMappings[j].command, argv[i + 1], argv[i + 2]);
+                            i += 2; // Increment i to skip processed parameters
+                        } else if (parameterCount > 0 && parameterCount <= 2) { // Update the range as needed for other commands
+                            snprintf(command, MAX_COMMAND_SIZE, "%s", commandMappings[j].command);
+
+                            // Append the required parameters
+                            for (int p = 0; p < parameterCount; p++) {
+                                strncat(command, " ", MAX_COMMAND_SIZE - strlen(command) - 1);
+                                strncat(command, argv[i + 1 + p], MAX_COMMAND_SIZE - strlen(command) - 1);
+                            }
+
+                            strncat(command, "\n", MAX_COMMAND_SIZE - strlen(command) - 1);
+                            i += parameterCount; // Increment i to skip processed parameters
                         } else {
-                            printf("Missing parameter for -%c command\n", commandFlag);
+                            printf("Invalid number of parameters for -%c command\n", commandFlag);
                             return -1;
                         }
                     } else {
@@ -133,7 +153,7 @@ int handle_commands(int argc, char *argv[], int sock) {
                         return -1;
                     } else {
                         printf("Server reply: %s\n", server_reply);
-                        //clear the buffer
+                        // Clear the buffer
                         memset(server_reply, 0, sizeof(server_reply));
                     }
 
@@ -151,6 +171,7 @@ int handle_commands(int argc, char *argv[], int sock) {
 
     return 0;
 }
+
 
 void print_server_response(int sock) {
     char server_reply[2000];

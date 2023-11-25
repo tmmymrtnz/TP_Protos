@@ -116,7 +116,7 @@ void handle_delete_user_command(int socket_fd, const char *username) {
 
 void handle_add_user_command(int socket_fd, const char *username, const char *password) {
     if (add_user(username, password) == 0) {
-        send_response(socket_fd, "ADD_USER -> +OK");
+        send_response(socket_fd, "ADD_USER -> +OK\r\n");
     } else {
         send_response(socket_fd, "-ERR Failed to add user.\r\n");
     }
@@ -146,7 +146,7 @@ void handle_help_command(int socket_fd) {
              "Usage: ./bin/popadmin [OPTION]...\r\n\r\n"
              "   -h               Help.\r\n"
              "   -v               Print version information.\r\n"
-             "   -A <name>:<pass> Add a user to the server.\r\n"
+             "   -A <name> <pass> Add a user to the server.\r\n"
              "   -m               Get the maximum number of available mails.\r\n"
              "   -M <max>         Modify the maximum number of available mails.\r\n"
              "   -d               Get the path to the mail directory.\r\n"
@@ -155,7 +155,6 @@ void handle_help_command(int socket_fd) {
              "   -c               Get the current number of connections.\r\n"
              "   -b               Get the number of bytes transferred.\r\n"
              ".\r\n"); // Ensure to end with the termination sequence
-
     send_response(socket_fd, response);
 }
 
@@ -265,11 +264,11 @@ int process_admin_command(char * buffer, int socket_fd) {
             sscanf(command + 16, "%s %s", old_password, new_password);
             handle_change_password_command(socket_fd, old_password, new_password);
         }
-        else if (strncmp(command, "TRANSFORM ", 10) == 0) {
-            char transform[10];
-            sscanf(command + 10, "%s", transform);
-            handle_set_transform_command(socket_fd, transform);
-        }
+        // else if (strncmp(command, "TRANSFORM ", 10) == 0) {
+        //     char transform[10];
+        //     sscanf(command + 10, "%s", transform);
+        //     handle_set_transform_command(socket_fd, transform);
+        // }
         else if (strncmp(command, "HELP", 4) == 0) {
             handle_help_command(socket_fd);
         }
